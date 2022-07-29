@@ -25,9 +25,6 @@ pub struct Cpu {
 
 impl Cpu {
     pub fn new() -> Self {
-        // read from instruction csv all the instruction text and convert them to coded instruction
-        // structs to be passed as lookup instructions to the cpu.
-
         Self {
             status: 0u8,
             sp: 0u8,
