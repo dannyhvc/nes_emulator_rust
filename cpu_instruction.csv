@@ -1,3 +1,4 @@
+name,operation,addressingMode,cycles
 BRK,BRK,IMM,7
 ORA,ORA,IZX,6
 ???,XXX,IMP,2

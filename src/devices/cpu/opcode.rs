@@ -1,6 +1,6 @@
 use crate::devices::bus::Bus;
 use super::processor::Cpu;
-
+#[allow(non_snake_case)]
 pub trait Opcode {
     fn ADC(cpu_6502: &mut Cpu, bus: &mut Bus) -> u8 {todo!()}
     fn BCS(cpu_6502: &mut Cpu, bus: &mut Bus) -> u8 {todo!()}
@@ -60,7 +60,7 @@ pub trait Opcode {
     fn TYA(cpu_6502: &mut Cpu, bus: &mut Bus) -> u8 {todo!()}
 
     // ERROR CODE
-    fn XXX(cpu_6502: &mut Cpu) -> u8 {
+    fn XXX(_cpu_6502: &mut Cpu, _bus: &mut Bus) -> u8 {
         0u8
     }
 }
