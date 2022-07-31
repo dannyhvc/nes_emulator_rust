@@ -89,18 +89,91 @@ impl Cpu {
     }
 
     // Interrupt Request - Executes an instruction at a specific location
-    pub fn irq() {}
+    pub fn irq(&mut self, bus: &mut Bus) {
+        if self.get_flag(Flags_6502::I) == 0 {
+            // Push the program counter to the stack. Its 16bits don't forget so that takes 2 pushs
+            bus.write(0x0100 + self.sp as u16, (self.pc as u8 >> 8) & 0x00FF);
+            self.sp -= 1u8;
+            bus.write(0x0100 + self.sp as u16, (self.pc & 0x00FF) as u8);
+            self.sp -= 1u8;
+
+            // push the status register to the stack
+            self.set_flag(Flags_6502::B, false);
+            self.set_flag(Flags_6502::U, true);
+            self.set_flag(Flags_6502::I, true);
+            bus.write(0x0100 + self.sp as u16, self.status);
+            self.sp -= 1u8;
+
+            // read new program counter location from fixed address
+            self.addr_abs = 0xFFFE;
+            let lo = bus.read(self.addr_abs + 0, false);
+            let hi = bus.read(self.addr_abs + 1, false);
+            self.pc = ((hi as u16) << 8u16) | lo as u16;
+
+            // Interrupt takes time to complete
+            self.cycles = 7;
+        }
+    }
 
     // Non-Maskable Interrupt Request - As above, but cannot be disabled
-    pub fn nmi() {}
+    pub fn nmi(&mut self, bus: &mut Bus) {
+        bus.write(0x0100 + self.sp as u16, (self.pc as u8 >> 8) & 0x00FF);
+        self.sp -= 1;
+        bus.write(0x0100 + self.sp as u16, self.pc as u8 & 0x00FF);
+        self.sp -= 1;
+
+        self.set_flag(Flags_6502::B, false);
+        self.set_flag(Flags_6502::U, true);
+        self.set_flag(Flags_6502::I, true);
+
+        bus.write(0x0100 + self.sp as u16, self.status);
+        self.pc += 1;
+
+        self.addr_abs = 0x0FFFA;
+        let lo = bus.read(self.addr_abs + 0, false);
+        let hi = bus.read(self.addr_abs + 1, false);
+        self.pc = ((hi << 8) | lo) as u16;
+
+        self.cycles = 8;
+    }
 
     // Perform one clock cycle's worth of update
-    pub fn clock() {}
+    pub fn clock(&mut self, bus: &mut Bus) {
+        if (self.cycles == 0) {
+            let opcode = bus.read(self.pc, false);
+
+            let log_pc = self.pc as u16;
+
+            self.set_flag(Flags_6502::U, true);
+
+            self.pc += 1;
+
+            self.cycles = self.lookup[opcode as usize].cycles as u8;
+
+            let addr_cycle_count = (self.lookup[opcode as usize].addrmode)
+                .expect("Addressing function init failed")(
+                self, bus
+            );
+
+            let operate_cycle_count = (self.lookup[opcode as usize].operate)
+                .expect("Opcode function init failed")(
+                self, bus
+            );
+
+            self.cycles += (addr_cycle_count & operate_cycle_count);
+            self.set_flag(Flags_6502::U, true);
+        }
+
+        self.clock_count += 1;
+        self.cycles -= 1;
+    }
 
     // Indicates the current instruction has completed by returning true. This is
     // a utility function to enable "step-by-step" execution, without manually
     // clocking every cycle
-    pub fn complete() {}
+    pub fn complete(&self) -> bool {
+        self.cycles == 0
+    }
 }
 
 impl Opcode for Cpu {}

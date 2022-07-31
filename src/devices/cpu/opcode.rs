@@ -58,7 +58,6 @@ pub trait Opcode {
     fn STA(cpu_6502: &mut Cpu, bus: &mut Bus) -> u8 {todo!()}
     fn TAY(cpu_6502: &mut Cpu, bus: &mut Bus) -> u8 {todo!()}
     fn TYA(cpu_6502: &mut Cpu, bus: &mut Bus) -> u8 {todo!()}
-
     // ERROR CODE
     fn XXX(_cpu_6502: &mut Cpu, _bus: &mut Bus) -> u8 {
         0u8

@@ -1,3 +1,12 @@
+/// # Flags_6502
+///* C = Carry flag
+///* Z = Zero flag
+///* I = Interrupt mask
+///* D = Decimal flag
+///* B = Break flag
+///* U = Unused flag
+///* V = Overflow flag
+///* N = Negative flag
 #[derive(Debug, Clone, Copy)]
 pub enum Flags_6502 {
     C = (1 << 0x0), // Carry flag
