@@ -174,6 +174,17 @@ impl Cpu {
     pub fn complete(&self) -> bool {
         self.cycles == 0
     }
+
+    pub fn fetch(&mut self, bus: &mut Bus) -> u8 {
+        if self.lookup[self.opcode as usize]
+            .addrmode
+            .expect("address mode not found") as usize
+            == Cpu::IMP as usize
+        {
+            self.fetched = bus.read(self.addr_abs, false);
+        }
+        return self.fetched.clone();
+    }
 }
 
 impl Opcode for Cpu {}
