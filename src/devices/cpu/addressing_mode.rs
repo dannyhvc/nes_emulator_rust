@@ -104,7 +104,7 @@ pub trait AddressingMode {
         let lo = bus.read((t + cpu.x) as u16 & 0x00FF, false);
         let hi = bus.read((t + cpu.x + 1) as u16 & 0x00FF, false);
 
-        cpu.addr_abs = ((hi << 8u16) | lo).into();
+        cpu.addr_abs = ((hi << 8u8) | lo << 8u8) as u16;
         return 0;
     }
 
@@ -115,13 +115,23 @@ pub trait AddressingMode {
         let lo = bus.read((t + cpu.y) as u16 & 0x00FF, false);
         let hi = bus.read((t + cpu.y + 1) as u16 & 0x00FF, false);
 
-        cpu.addr_abs = ((hi << 8u16) | lo).into();
+        cpu.addr_abs = ((hi << 8u8) | lo) as u16;
         cpu.addr_abs += cpu.y as u16;
 
-        return if (cpu.addr_abs & 0xFF00) != (hi << 8).into() {
+        return if (cpu.addr_abs & 0xFF00) != (hi << 8u8) as u16 {
             1
         } else {
             0
         };
     }
+}
+
+#[test]
+fn overflow_test() {
+    println!("0xff0000 << 8 = {}", 0xff00 << 8u8);
+    println!("0x00ff00 << 8 = {}", 0x00ff << 8u8);
+    println!(
+        "0xffff00 >> 8 = {}",
+        ((0xff00 << 8u8) | (0x00ff << 8u8)) >> 8u8
+    );
 }
