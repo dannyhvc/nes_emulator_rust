@@ -1,10 +1,9 @@
-use crate::devices::bus::Bus;
-
 use super::addressing_mode::AddressingMode;
 use super::flags::Flags_6502;
 use super::instruction::Instruction;
 use super::lookup_table::LookupTable;
 use super::opcode::Opcode;
+use crate::devices::bus::Bus;
 
 pub struct Cpu {
     pub status: u8,
@@ -139,10 +138,10 @@ impl Cpu {
 
     // Perform one clock cycle's worth of update
     pub fn clock(&mut self, bus: &mut Bus) {
-        if (self.cycles == 0) {
+        if self.cycles == 0 {
             let opcode = bus.read(self.pc, false);
 
-            let log_pc = self.pc as u16;
+            // let log_pc = self.pc as u16;
 
             self.set_flag(Flags_6502::U, true);
 
@@ -150,17 +149,14 @@ impl Cpu {
 
             self.cycles = self.lookup[opcode as usize].cycles as u8;
 
-            let addr_cycle_count = (self.lookup[opcode as usize].addrmode)
-                .expect("Addressing function init failed")(
-                self, bus
-            );
+            let addr_cycle_count = self.lookup[opcode as usize].addrmode.map(|x| x(self, bus));
+            let operate_cycle_count = self.lookup[opcode as usize].operate.map(|x| x(self, bus));
 
-            let operate_cycle_count = (self.lookup[opcode as usize].operate)
-                .expect("Opcode function init failed")(
-                self, bus
-            );
-
-            self.cycles += (addr_cycle_count & operate_cycle_count);
+            if let (Some(addr_cycle_count), Some(operate_cycle_count)) =
+                (addr_cycle_count, operate_cycle_count)
+            {
+                self.cycles += addr_cycle_count & operate_cycle_count;
+            }
             self.set_flag(Flags_6502::U, true);
         }
 
@@ -178,15 +174,14 @@ impl Cpu {
     pub fn fetch(&mut self, bus: &mut Bus) -> u8 {
         if self.lookup[self.opcode as usize]
             .addrmode
-            .expect("address mode not found") as usize
-            == Cpu::IMP as usize
+            .filter(|x| Cpu::IMP as usize == *x as usize)
+            .is_some()
         {
             self.fetched = bus.read(self.addr_abs, false);
         }
-        return self.fetched.clone();
+        self.fetched
     }
 }
 
-impl Opcode for Cpu {}
-
 impl AddressingMode for Cpu {}
+impl Opcode for Cpu {}

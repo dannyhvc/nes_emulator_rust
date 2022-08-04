@@ -58,9 +58,9 @@ pub trait AddressingMode {
     }
 
     fn ABY(cpu: &mut Cpu, bus: &mut Bus) -> u8 {
-        let lo = bus.read(cpu.pc as u16, false);
+        let lo: u16 = bus.read(cpu.pc as u16, false).into();
         cpu.pc += 1;
-        let hi = bus.read(cpu.pc as u16, false);
+        let hi: u16 = bus.read(cpu.pc as u16, false).into();
         cpu.pc += 1;
         cpu.addr_abs = ((hi << 8) | lo) as u16;
         cpu.addr_abs += cpu.y as u16;
@@ -104,7 +104,7 @@ pub trait AddressingMode {
         let lo = bus.read((t + cpu.x) as u16 & 0x00FF, false);
         let hi = bus.read((t + cpu.x + 1) as u16 & 0x00FF, false);
 
-        cpu.addr_abs = ((hi << 8u8) | lo << 8u8) as u16;
+        cpu.addr_abs = ((hi << 8u8) | lo << 8u8) as u16 >> 8u16;
         return 0;
     }
 
@@ -115,10 +115,10 @@ pub trait AddressingMode {
         let lo = bus.read((t + cpu.y) as u16 & 0x00FF, false);
         let hi = bus.read((t + cpu.y + 1) as u16 & 0x00FF, false);
 
-        cpu.addr_abs = ((hi << 8u8) | lo) as u16;
+        cpu.addr_abs = (((hi as u16) << 8u16) | (lo as u16) << 8u16) as u16;
         cpu.addr_abs += cpu.y as u16;
 
-        return if (cpu.addr_abs & 0xFF00) != (hi << 8u8) as u16 {
+        return if (cpu.addr_abs & 0xFF00) != ((hi as u16) << 8u8) as u16 {
             1
         } else {
             0
@@ -134,4 +134,7 @@ fn overflow_test() {
         "0xffff00 >> 8 = {}",
         ((0xff00 << 8u8) | (0x00ff << 8u8)) >> 8u8
     );
+
+    Cpu::IZY as usize;
+    Cpu::ABY as usize;
 }
