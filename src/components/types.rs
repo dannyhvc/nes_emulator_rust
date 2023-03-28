@@ -17,7 +17,9 @@ pub type Wref<T> = Weak<RefCell<T>>;
 pub type OWref<T> = Option<Weak<RefCell<T>>>;
 pub type RWref<V, E> = Result<Weak<RefCell<V>>, E>;
 
+#[derive(PartialEq, Eq)]
 pub enum M6502Flags {
+    E = (0),      // Empty default
     C = (1 << 0), // Carry Bit
     Z = (1 << 1), // Zero
     I = (1 << 2), // Disable Interrupts

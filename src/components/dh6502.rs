@@ -1,5 +1,5 @@
 use super::bus::Bus;
-use super::types::{M6502AddrModes, M6502Opcodes};
+use super::types::{M6502AddrModes, M6502Flags, M6502Opcodes};
 use super::LOOKUP_TABLE; // will be used later
 
 pub struct M6502 {
@@ -31,7 +31,7 @@ impl M6502 {
             y: 0x00,
             stkp: 0x00,
             pc: 0x0000,
-            status: 0x00,
+            status: M6502Flags::E as u8,
             fetched: 0x00,
             temp: 0x0000,
             addr_abs: 0x0000,
@@ -51,11 +51,59 @@ impl M6502 {
         }
         self.fetched
     }
+
+    /**
+    ### Sets or clears a specific bit of the status register
+    */
+    pub fn set_flag(&mut self, f: M6502Flags, v: bool) {
+        if v {
+            self.status |= f as u8;
+        } else {
+            self.status |= !(f as u8) // flip da bits
+        }
+    }
+
+    /**
+    ### Returns the value of a specific bit of the status register
+    */
+    pub fn get_flag(&mut self, f: M6502Flags) -> u8 {
+        return if (self.status & f as u8) > 0 {
+            1u8
+        } else {
+            0u8
+        };
+    }
 }
 
 impl M6502Opcodes for M6502 {
     fn adc(cpu: &mut M6502, bus: &mut Bus) -> u8 {
-        todo!()
+        // Grab the data that we are adding to the accumulator
+        cpu.fetch(bus);
+
+        // Add is performed in 16-bit domain for emulation to capture any
+        // carry bit, which will exist in bit 8 of the 16-bit word
+        cpu.temp = cpu.acc as u16 + cpu.fetched as u16 + cpu.get_flag(M6502Flags::C) as u16;
+
+        // The carry flag out exists in the high byte bit 0
+        cpu.set_flag(M6502Flags::C, cpu.temp > 255);
+
+        // The Zero flag is set if the result is 0
+        cpu.set_flag(M6502Flags::Z, (cpu.temp & 0x00FF) == 0);
+
+        // The signed Overflow flag is set based on all that up there! :D
+        cpu.set_flag(
+            M6502Flags::V,
+            ((!(cpu.acc as u16 ^ cpu.fetched as u16) & (cpu.acc as u16 ^ cpu.temp)) & 0x0080) > 0,
+        );
+
+        // The negative flag is set to the most significant bit of the result
+        cpu.set_flag(M6502Flags::N, (cpu.temp & 0x80) == 0);
+
+        // Load the result into the accumulator (it's 8-bit dont forget!)
+        cpu.acc = ((cpu.temp as u16) & 0x00FF) as u8;
+
+        // This instruction has the potential to require an additional clock cycle
+        return 1;
     }
 
     fn and(cpu: &mut M6502, bus: &mut Bus) -> u8 {
