@@ -41,6 +41,16 @@ impl M6502 {
             clock_count: 0,
         }
     }
+
+    // TODO: just noticed a possible problem with race conditions and rust borrowing rules
+    // its possible that self.fetched might own the spot in the buses ram and not give it back before
+    // the next cycle. I guess we'll have to test and see
+    pub fn fetch(&mut self, bus: &mut Bus) -> u8 {
+        if !(LOOKUP_TABLE[self.opcode as usize].2 as usize == M6502::imp as usize) {
+            self.fetched = bus.read(self.addr_abs, false);
+        }
+        self.fetched
+    }
 }
 
 impl M6502Opcodes for M6502 {

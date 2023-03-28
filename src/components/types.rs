@@ -40,10 +40,11 @@ pub struct NesDeviceStack {
 }
 
 /**
-This structure and the following vector are used to compile and store
+```This structure and the following vector are used to compile and store
 the opcode translation table. The 6502 can effectively have 256
 different instructions. Each of these are stored in a table in numerical
 order so they can be looked up easily, with no decoding required.
+
 Each table entry holds:
    Pneumonic : A textual representation of the instruction (used for disassembly)
    Opcode Function: A function pointer to the implementation of the opcode
@@ -51,13 +52,14 @@ Each table entry holds:
                          addressing mechanism used by the instruction
    Cycle Count : An integer that represents the base number of clock cycles the
                  self requires to perform the instruction
+```
 */
-pub struct M6502Instruction {
-    pub name: String, // TODO: might need to be a ref idk yet
-    pub operate: Option<for<'a, 'b> fn(&'a mut M6502, &'b mut Bus) -> u8>,
-    pub addrmode: Option<for<'a, 'b> fn(&'a mut M6502, &'b mut Bus) -> u8>,
-    pub cycles: u8,
-}
+pub struct M6502Instruction(
+    pub &'static str, // TODO: might need to be a ref idk yet
+    pub for<'a, 'b> fn(&'a mut M6502, &'b mut Bus) -> u8,
+    pub for<'a, 'b> fn(&'a mut M6502, &'b mut Bus) -> u8,
+    pub u8,
+);
 
 pub trait M6502Opcodes {
     fn adc(cpu: &mut M6502, bus: &mut Bus) -> u8;
