@@ -3,5 +3,5 @@
 version = 3
 
 [[package]]
-name = "nes_emulator_rust"
+name = "nes_emulator"
 version = "0.1.0"

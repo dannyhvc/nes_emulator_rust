@@ -1,9 +1,5 @@
-mod components;
-mod devices;
-
+mod cpu;
 fn main() {
-
-    'clock: loop {
-
-    }
+    println!("Hello, world!");
 }
+
