@@ -2,6 +2,7 @@ use super::bus::Bus;
 use super::types::{M6502AddrModes, M6502Flags, M6502Opcodes};
 use super::LOOKUP_TABLE; // will be used later
 
+#[derive(Debug, Clone)]
 pub struct M6502 {
     // cpu Core registers, exposed as public here for ease of access from external
     // examinors. This is all the 6502 has.
@@ -93,7 +94,7 @@ impl M6502Opcodes for M6502 {
         // The signed Overflow flag is set based on all that up there! :D
         cpu.set_flag(
             M6502Flags::V,
-            ((!(cpu.acc as u16 ^ cpu.fetched as u16) & (cpu.acc as u16 ^ cpu.temp)) & 0x0080) > 0,
+            !(cpu.acc as u16 ^ cpu.fetched as u16) & (cpu.acc as u16 ^ cpu.temp) & 0x0080 != 0,
         );
 
         // The negative flag is set to the most significant bit of the result
@@ -103,39 +104,140 @@ impl M6502Opcodes for M6502 {
         cpu.acc = ((cpu.temp as u16) & 0x00FF) as u8;
 
         // This instruction has the potential to require an additional clock cycle
-        return 1;
+        1u8
     }
 
+    /**
+    1) Fetch the data you are working with
+    2) Perform calculation
+    3) Store the result in desired place
+    4) Set Flags of the status register
+    5) Return if instruction has potential to require additional
+        clock cycle
+    ### Instruction: Bitwise Logic AND
+    - Function:    A = A & M
+    - Flags Out:   N, Z
+    */
     fn and(cpu: &mut M6502, bus: &mut Bus) -> u8 {
-        todo!()
+        cpu.fetch(bus);
+        cpu.acc &= cpu.fetched;
+        cpu.set_flag(M6502Flags::Z, cpu.acc == 0x00);
+        cpu.set_flag(M6502Flags::N, cpu.acc & 0x80 != 0);
+        1u8
     }
 
+    /**
+    ### Instruction: Arithmetic Shift Left
+    - Function:    A = C <- (A << 1) <- 0
+    -Flags Out:   N, Z, C
+    */
     fn asl(cpu: &mut M6502, bus: &mut Bus) -> u8 {
-        todo!()
+        cpu.fetch(bus);
+        cpu.temp = (cpu.fetched << 1) as u16;
+        cpu.set_flag(M6502Flags::C, (cpu.temp & 0xFF00) > 0);
+        cpu.set_flag(M6502Flags::Z, (cpu.temp & 0x00FF) == 0);
+        cpu.set_flag(M6502Flags::N, (cpu.temp & 0x80) != 0);
+        if LOOKUP_TABLE[cpu.opcode as usize].2 as usize == M6502::imp as usize {
+            cpu.acc = (cpu.temp & 0x00FF) as u8;
+        } else {
+            // IMPORTANT:
+            bus.write(cpu.addr_abs, (cpu.temp & 0x00FF) as u8);
+        }
+        0u8
     }
 
-    fn bcc(cpu: &mut M6502, bus: &mut Bus) -> u8 {
-        todo!()
+    /**
+    ### Instruction: Branch if Carry Clear
+    - Function:    if(C == 0) pc = address
+    */
+    fn bcc(cpu: &mut M6502, _: &mut Bus) -> u8 {
+        if cpu.get_flag(M6502Flags::C) == 0_u8 {
+            cpu.cycles += 1_u8;
+            cpu.addr_abs = cpu.pc + cpu.addr_rel;
+
+            if cpu.addr_abs & 0xFF00 != cpu.pc & 0xFF00 {
+                cpu.cycles += 1_u8;
+            }
+            cpu.pc = cpu.addr_abs;
+        }
+        0_u8
     }
 
-    fn bcs(cpu: &mut M6502, bus: &mut Bus) -> u8 {
-        todo!()
+    /**
+    ### Instruction: Branch if Carry Set
+    - Function:    if(C == 1) pc = address
+    */
+    fn bcs(cpu: &mut M6502, _: &mut Bus) -> u8 {
+        if cpu.get_flag(M6502Flags::C) == 1_u8 {
+            cpu.cycles += 1_u8;
+            cpu.addr_abs = cpu.pc + cpu.addr_rel;
+
+            if cpu.addr_abs & 0xFF00 != cpu.pc & 0xFF00 {
+                cpu.cycles += 1_u8;
+            }
+            cpu.pc = cpu.addr_abs;
+        }
+        1u8
     }
 
-    fn beq(cpu: &mut M6502, bus: &mut Bus) -> u8 {
-        todo!()
+    /**
+    ### Instruction: Branch if Equal
+    - Function:    if(Z == 1) pc = address
+    */
+    fn beq(cpu: &mut M6502, _: &mut Bus) -> u8 {
+        if cpu.get_flag(M6502Flags::Z) == 1_u8 {
+            cpu.cycles += 1_u8;
+            cpu.addr_abs = cpu.pc + cpu.addr_rel;
+
+            if cpu.addr_abs & 0xFF00 != cpu.pc & 0xFF00 {
+                cpu.cycles += 1_u8;
+            }
+            cpu.pc = cpu.addr_abs;
+        }
+        0_u8
     }
 
     fn bit(cpu: &mut M6502, bus: &mut Bus) -> u8 {
-        todo!()
+        cpu.fetch(bus);
+        cpu.temp = (cpu.acc & cpu.fetched) as u16;
+        cpu.set_flag(M6502Flags::Z, cpu.temp & 0x00FF == 0x00);
+        cpu.set_flag(M6502Flags::N, cpu.fetched & (1 << 7) != 0);
+        cpu.set_flag(M6502Flags::V, cpu.fetched & (1 << 6) != 0);
+        0_u8
     }
 
-    fn bmi(cpu: &mut M6502, bus: &mut Bus) -> u8 {
-        todo!()
+    /**
+    ### Instruction: Branch if Negative
+    Function:    if(N == 1) pc = address
+    */
+    fn bmi(cpu: &mut M6502, _: &mut Bus) -> u8 {
+        if cpu.get_flag(M6502Flags::N) == 1_u8 {
+            cpu.cycles += 1_u8;
+            cpu.addr_abs = cpu.pc + cpu.addr_rel;
+
+            if cpu.addr_abs & 0xFF00 != cpu.pc & 0xFF00 {
+                cpu.cycles += 1_u8;
+            }
+            cpu.pc = cpu.addr_abs;
+        }
+        0_u8
     }
 
-    fn bne(cpu: &mut M6502, bus: &mut Bus) -> u8 {
-        todo!()
+    /**
+    ### Instruction: Branch if Not Equal
+    - Function:    if(Z == 0) pc = address
+    */
+    fn bne(cpu: &mut M6502, _: &mut Bus) -> u8 {
+        if cpu.get_flag(M6502Flags::Z) == 0_u8 {
+            cpu.cycles += 1_u8;
+            cpu.addr_abs = cpu.pc + cpu.addr_rel;
+
+            if cpu.addr_abs & 0xFF00 != cpu.pc & 0xFF00 {
+                cpu.cycles += 1_u8;
+            }
+            cpu.pc = cpu.addr_abs;
+        }
+        0_u8
     }
 
     fn bpl(cpu: &mut M6502, bus: &mut Bus) -> u8 {
@@ -332,7 +434,7 @@ impl M6502Opcodes for M6502 {
 }
 
 impl M6502AddrModes for M6502 {
-    fn imp(cpu: &mut M6502, _bus: &mut Bus) -> u8 {
+    fn imp(cpu: &mut M6502, _: &mut Bus) -> u8 {
         cpu.fetched = cpu.acc;
         0x00
     }

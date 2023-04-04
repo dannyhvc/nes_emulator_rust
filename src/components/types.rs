@@ -58,9 +58,9 @@ Each table entry holds:
 */
 pub struct M6502Instruction(
     pub &'static str, // TODO: might need to be a ref idk yet
-    pub for<'a, 'b> fn(&'a mut M6502, &'b mut Bus) -> u8,
-    pub for<'a, 'b> fn(&'a mut M6502, &'b mut Bus) -> u8,
-    pub u8,
+    pub for<'a, 'b> fn(&'a mut M6502, &'b mut Bus) -> u8, // OPCODE
+    pub for<'a, 'b> fn(&'a mut M6502, &'b mut Bus) -> u8, // ADDRESSING MODE
+    pub u8,           // CYCLE COUNT
 );
 
 pub trait M6502Opcodes {
