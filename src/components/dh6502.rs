@@ -1,6 +1,6 @@
 use super::bus::Bus;
 use super::types::{M6502AddrModes, M6502Flags, M6502Opcodes};
-use super::LOOKUP_TABLE; // will be used later
+use super::{HIGH_BYTE, LOOKUP_TABLE, LOW_BYTE, TOP_BIT_THRESH};
 
 #[derive(Debug, Clone)]
 pub struct M6502 {
@@ -25,6 +25,7 @@ pub struct M6502 {
 }
 
 impl M6502 {
+    #[inline]
     pub fn new() -> Self {
         Self {
             acc: 0x00,
@@ -56,6 +57,7 @@ impl M6502 {
     /**
     ### Sets or clears a specific bit of the status register
     */
+    #[inline]
     pub fn set_flag(&mut self, f: M6502Flags, v: bool) {
         if v {
             self.status |= f as u8;
@@ -89,7 +91,7 @@ impl M6502Opcodes for M6502 {
         cpu.set_flag(M6502Flags::C, cpu.temp > 255);
 
         // The Zero flag is set if the result is 0
-        cpu.set_flag(M6502Flags::Z, (cpu.temp & 0x00FF) == 0);
+        cpu.set_flag(M6502Flags::Z, (cpu.temp & LOW_BYTE) == 0);
 
         // The signed Overflow flag is set based on all that up there! :D
         cpu.set_flag(
@@ -98,10 +100,10 @@ impl M6502Opcodes for M6502 {
         );
 
         // The negative flag is set to the most significant bit of the result
-        cpu.set_flag(M6502Flags::N, (cpu.temp & 0x80) == 0);
+        cpu.set_flag(M6502Flags::N, (cpu.temp & TOP_BIT_THRESH) != 0);
 
         // Load the result into the accumulator (it's 8-bit dont forget!)
-        cpu.acc = ((cpu.temp as u16) & 0x00FF) as u8;
+        cpu.acc = ((cpu.temp as u16) & LOW_BYTE) as u8;
 
         // This instruction has the potential to require an additional clock cycle
         1u8
@@ -122,7 +124,7 @@ impl M6502Opcodes for M6502 {
         cpu.fetch(bus);
         cpu.acc &= cpu.fetched;
         cpu.set_flag(M6502Flags::Z, cpu.acc == 0x00);
-        cpu.set_flag(M6502Flags::N, cpu.acc & 0x80 != 0);
+        cpu.set_flag(M6502Flags::N, (cpu.acc & TOP_BIT_THRESH as u8) != 0);
         1u8
     }
 
@@ -134,14 +136,13 @@ impl M6502Opcodes for M6502 {
     fn asl(cpu: &mut M6502, bus: &mut Bus) -> u8 {
         cpu.fetch(bus);
         cpu.temp = (cpu.fetched << 1) as u16;
-        cpu.set_flag(M6502Flags::C, (cpu.temp & 0xFF00) > 0);
-        cpu.set_flag(M6502Flags::Z, (cpu.temp & 0x00FF) == 0);
-        cpu.set_flag(M6502Flags::N, (cpu.temp & 0x80) != 0);
+        cpu.set_flag(M6502Flags::C, (cpu.temp & HIGH_BYTE) > 0);
+        cpu.set_flag(M6502Flags::Z, (cpu.temp & LOW_BYTE) == 0);
+        cpu.set_flag(M6502Flags::N, (cpu.temp & TOP_BIT_THRESH) != 0);
         if LOOKUP_TABLE[cpu.opcode as usize].2 as usize == M6502::imp as usize {
-            cpu.acc = (cpu.temp & 0x00FF) as u8;
+            cpu.acc = (cpu.temp & LOW_BYTE) as u8;
         } else {
-            // IMPORTANT:
-            bus.write(cpu.addr_abs, (cpu.temp & 0x00FF) as u8);
+            bus.write(cpu.addr_abs, (cpu.temp & LOW_BYTE) as u8);
         }
         0u8
     }
@@ -155,7 +156,7 @@ impl M6502Opcodes for M6502 {
             cpu.cycles += 1_u8;
             cpu.addr_abs = cpu.pc + cpu.addr_rel;
 
-            if cpu.addr_abs & 0xFF00 != cpu.pc & 0xFF00 {
+            if cpu.addr_abs & HIGH_BYTE != cpu.pc & HIGH_BYTE {
                 cpu.cycles += 1_u8;
             }
             cpu.pc = cpu.addr_abs;
@@ -172,7 +173,7 @@ impl M6502Opcodes for M6502 {
             cpu.cycles += 1_u8;
             cpu.addr_abs = cpu.pc + cpu.addr_rel;
 
-            if cpu.addr_abs & 0xFF00 != cpu.pc & 0xFF00 {
+            if cpu.addr_abs & HIGH_BYTE != cpu.pc & HIGH_BYTE {
                 cpu.cycles += 1_u8;
             }
             cpu.pc = cpu.addr_abs;
@@ -189,7 +190,7 @@ impl M6502Opcodes for M6502 {
             cpu.cycles += 1_u8;
             cpu.addr_abs = cpu.pc + cpu.addr_rel;
 
-            if cpu.addr_abs & 0xFF00 != cpu.pc & 0xFF00 {
+            if cpu.addr_abs & HIGH_BYTE != cpu.pc & HIGH_BYTE {
                 cpu.cycles += 1_u8;
             }
             cpu.pc = cpu.addr_abs;
@@ -200,9 +201,9 @@ impl M6502Opcodes for M6502 {
     fn bit(cpu: &mut M6502, bus: &mut Bus) -> u8 {
         cpu.fetch(bus);
         cpu.temp = (cpu.acc & cpu.fetched) as u16;
-        cpu.set_flag(M6502Flags::Z, cpu.temp & 0x00FF == 0x00);
-        cpu.set_flag(M6502Flags::N, cpu.fetched & (1 << 7) != 0);
-        cpu.set_flag(M6502Flags::V, cpu.fetched & (1 << 6) != 0);
+        cpu.set_flag(M6502Flags::Z, (cpu.temp & LOW_BYTE) == 0x00);
+        cpu.set_flag(M6502Flags::N, (cpu.fetched & (1 << 7)) != 0);
+        cpu.set_flag(M6502Flags::V, (cpu.fetched & (1 << 6)) != 0);
         0_u8
     }
 
@@ -215,7 +216,7 @@ impl M6502Opcodes for M6502 {
             cpu.cycles += 1_u8;
             cpu.addr_abs = cpu.pc + cpu.addr_rel;
 
-            if cpu.addr_abs & 0xFF00 != cpu.pc & 0xFF00 {
+            if cpu.addr_abs & HIGH_BYTE != cpu.pc & HIGH_BYTE {
                 cpu.cycles += 1_u8;
             }
             cpu.pc = cpu.addr_abs;
@@ -232,7 +233,7 @@ impl M6502Opcodes for M6502 {
             cpu.cycles += 1_u8;
             cpu.addr_abs = cpu.pc + cpu.addr_rel;
 
-            if cpu.addr_abs & 0xFF00 != cpu.pc & 0xFF00 {
+            if cpu.addr_abs & HIGH_BYTE != cpu.pc & HIGH_BYTE {
                 cpu.cycles += 1_u8;
             }
             cpu.pc = cpu.addr_abs;
@@ -447,21 +448,21 @@ impl M6502AddrModes for M6502 {
     fn zp0(cpu: &mut M6502, bus: &mut Bus) -> u8 {
         cpu.addr_abs = bus.read(cpu.pc, false) as u16;
         cpu.pc += 1;
-        cpu.addr_abs &= 0x00FF; // checking if high bit is on a new page
+        cpu.addr_abs &= LOW_BYTE; // checking if high bit is on a new page
         0x00
     }
 
     fn zpx(cpu: &mut M6502, bus: &mut Bus) -> u8 {
         cpu.addr_abs = bus.read(cpu.pc + cpu.x as u16, false) as u16;
         cpu.pc += 1;
-        cpu.addr_abs &= 0x00FF;
+        cpu.addr_abs &= LOW_BYTE;
         0x00
     }
 
     fn zpy(cpu: &mut M6502, bus: &mut Bus) -> u8 {
         cpu.addr_abs = bus.read(cpu.pc + cpu.y as u16, false) as u16;
         cpu.pc += 1;
-        cpu.addr_abs &= 0x00FF;
+        cpu.addr_abs &= LOW_BYTE;
         0x00
     }
 
@@ -482,7 +483,7 @@ impl M6502AddrModes for M6502 {
         cpu.addr_abs = ((hi << 8) | lo) as u16;
         cpu.addr_abs += cpu.x as u16;
 
-        return if (cpu.addr_abs & 0x00FF) != (hi << 8) as u16 {
+        return if (cpu.addr_abs & LOW_BYTE) != (hi << 8) as u16 {
             0x01
         } else {
             0x00
@@ -497,7 +498,7 @@ impl M6502AddrModes for M6502 {
         cpu.addr_abs = ((hi << 8) | lo) as u16;
         cpu.addr_abs += cpu.y as u16;
 
-        return if (cpu.addr_abs & 0x00FF) != (hi << 8) as u16 {
+        return if (cpu.addr_abs & LOW_BYTE) != (hi << 8) as u16 {
             0x01
         } else {
             0x00
@@ -508,7 +509,7 @@ impl M6502AddrModes for M6502 {
         cpu.addr_rel = bus.read(cpu.pc, false) as u16;
         cpu.pc += 1;
         if (cpu.addr_rel & 0x08) != 0 {
-            cpu.addr_abs |= 0x00FF;
+            cpu.addr_abs |= LOW_BYTE;
         }
         0x00
     }
@@ -523,8 +524,8 @@ impl M6502AddrModes for M6502 {
 
         let lo: u32;
         let hi: u32;
-        if pointer_lo == 0x00FF {
-            lo = (bus.read(ptr & 0x00FF, false) as u32) << 8;
+        if pointer_lo == LOW_BYTE {
+            lo = (bus.read(ptr & LOW_BYTE, false) as u32) << 8;
             hi = bus.read(ptr + 0, false).into();
             cpu.addr_abs = (lo | hi) as u16;
         } else {
@@ -539,8 +540,8 @@ impl M6502AddrModes for M6502 {
         let t = bus.read(cpu.pc, false);
         cpu.pc += 1;
 
-        let lo: u32 = bus.read((t + cpu.x) as u16 & 0x00FF, false).into();
-        let hi: u32 = bus.read((t + cpu.x + 1) as u16 & 0x00FF, false).into();
+        let lo: u32 = bus.read((t + cpu.x) as u16 & LOW_BYTE, false).into();
+        let hi: u32 = bus.read((t + cpu.x + 1) as u16 & LOW_BYTE, false).into();
 
         cpu.addr_abs = ((hi << 8u8) | lo << 8u8) as u16 >> 8u16;
         0x00
@@ -550,13 +551,13 @@ impl M6502AddrModes for M6502 {
         let t = bus.read(cpu.pc, false);
         cpu.pc += 1;
 
-        let lo = bus.read((t + cpu.y) as u16 & 0x00FF, false);
-        let hi = bus.read((t + cpu.y + 1) as u16 & 0x00FF, false);
+        let lo = bus.read((t + cpu.y) as u16 & LOW_BYTE, false);
+        let hi = bus.read((t + cpu.y + 1) as u16 & LOW_BYTE, false);
 
         cpu.addr_abs = (((hi as u16) << 8u16) | (lo as u16) << 8u16) as u16;
         cpu.addr_abs += cpu.y as u16;
 
-        return if (cpu.addr_abs & 0xFF00) != ((hi as u16) << 8u8) as u16 {
+        return if (cpu.addr_abs & HIGH_BYTE) != ((hi as u16) << 8u8) as u16 {
             0x01
         } else {
             0x00

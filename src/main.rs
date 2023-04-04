@@ -1,4 +1,3 @@
+extern crate custom_error;
 mod components;
-fn main() {
-    println!("Hello, world!");
-}
+fn main() {}

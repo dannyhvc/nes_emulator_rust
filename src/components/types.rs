@@ -1,15 +1,15 @@
+use super::{bus::Bus, dh6502::M6502};
+use custom_error::custom_error;
 use std::{
-    cell::{Ref, RefCell},
+    cell::RefCell,
     rc::{Rc, Weak},
 };
 
-use super::{bus::Bus, dh6502::M6502};
-
-#[derive(PartialEq, Eq, Clone, Copy)]
-pub enum CriticalCpuError {
-    Segfault,
-    StackOverflow,
-    Race,
+// TODO: add an actual error call hierarchy
+custom_error! {
+    CriticalCpuError
+    Bad      = "Something bad happened",
+    Terrible = "This is a very serious error!!!"
 }
 
 /* Weak refrence */
@@ -19,15 +19,15 @@ pub type RWref<V, E> = Result<Weak<RefCell<V>>, E>;
 
 #[derive(PartialEq, Eq)]
 pub enum M6502Flags {
-    E = (0),      // Empty default
-    C = (1 << 0), // Carry Bit
-    Z = (1 << 1), // Zero
-    I = (1 << 2), // Disable Interrupts
-    D = (1 << 3), // Decimal Mode (unused in this implementation)
-    B = (1 << 4), // Break
-    U = (1 << 5), // Unused
-    V = (1 << 6), // Overflow
-    N = (1 << 7), // Negative
+    E = 0,      // Empty default
+    C = 1 << 0, // Carry Bit
+    Z = 1 << 1, // Zero
+    I = 1 << 2, // Disable Interrupts
+    D = 1 << 3, // Decimal Mode (unused in this implementation)
+    B = 1 << 4, // Break
+    U = 1 << 5, // Unused
+    V = 1 << 6, // Overflow
+    N = 1 << 7, // Negative
 }
 
 /**
