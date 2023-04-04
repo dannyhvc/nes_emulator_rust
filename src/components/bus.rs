@@ -1,5 +1,6 @@
 use super::{BOTTOM_OF_RAM, TOP_OF_RAM};
 
+#[derive(Debug, Clone)]
 pub struct Bus {
     pub ram: [u8; 64 * 1024], // for now
 }
