@@ -241,40 +241,96 @@ impl M6502Opcodes for M6502 {
         0_u8
     }
 
-    fn bpl(cpu: &mut M6502, bus: &mut Bus) -> u8 {
-        todo!()
+    fn bpl(cpu: &mut M6502, _: &mut Bus) -> u8 {
+        if cpu.get_flag(M6502Flags::N) == 0 {
+            cpu.cycles += 1;
+            cpu.addr_abs = cpu.pc + cpu.addr_rel;
+
+            if cpu.addr_abs & HIGH_BYTE != cpu.pc & HIGH_BYTE {
+                cpu.cycles += 1;
+            }
+            cpu.pc = cpu.addr_abs;
+        }
+        0x0u8
     }
 
     fn brk(cpu: &mut M6502, bus: &mut Bus) -> u8 {
-        todo!()
+        cpu.pc += 1;
+
+        cpu.set_flag(M6502Flags::I, true);
+        bus.write(
+            (0x0100_u16 + cpu.stkp as u16).into(),
+            (cpu.pc >> 8 & LOW_BYTE) as u8,
+        );
+        cpu.stkp -= 1;
+        bus.write(
+            (0x0100_u16 + cpu.stkp as u16).into(),
+            (cpu.pc & LOW_BYTE) as u8,
+        );
+        cpu.stkp -= 1;
+
+        cpu.set_flag(M6502Flags::B, true);
+        bus.write((0x0100_u16 + cpu.stkp as u16).into(), cpu.status);
+        cpu.stkp -= 1;
+        cpu.set_flag(M6502Flags::B, true);
+
+        cpu.pc = ((bus.read(0xFFFE, false) != 0x0u8) | (bus.read(0xFFFF, false) != 0x0u8)).into();
+        0x0u8
     }
 
-    fn bvc(cpu: &mut M6502, bus: &mut Bus) -> u8 {
-        todo!()
+    fn bvc(cpu: &mut M6502, _: &mut Bus) -> u8 {
+        if cpu.get_flag(M6502Flags::V) == 0u8 {
+            cpu.cycles += 1;
+            cpu.addr_abs = cpu.pc + cpu.addr_rel;
+
+            if cpu.addr_abs & HIGH_BYTE != cpu.pc & HIGH_BYTE {
+                cpu.cycles += 1;
+            }
+            cpu.pc = cpu.addr_abs;
+        }
+        0x0u8
     }
 
     fn bvs(cpu: &mut M6502, bus: &mut Bus) -> u8 {
-        todo!()
+        if cpu.get_flag(M6502Flags::V) == 1u8 {
+            cpu.cycles += 1;
+            cpu.addr_abs = cpu.pc + cpu.addr_rel;
+
+            if cpu.addr_abs & HIGH_BYTE != cpu.pc & HIGH_BYTE {
+                cpu.cycles += 1;
+            }
+            cpu.pc = cpu.addr_abs;
+        }
+        0x0u8
     }
 
     fn clc(cpu: &mut M6502, bus: &mut Bus) -> u8 {
-        todo!()
+        cpu.set_flag(M6502Flags::C, false);
+        0x0u8
     }
 
     fn cld(cpu: &mut M6502, bus: &mut Bus) -> u8 {
-        todo!()
+        cpu.set_flag(M6502Flags::D, false);
+        0u8
     }
 
     fn cli(cpu: &mut M6502, bus: &mut Bus) -> u8 {
-        todo!()
+        cpu.set_flag(M6502Flags::I, false);
+        0u8
     }
 
     fn clv(cpu: &mut M6502, bus: &mut Bus) -> u8 {
-        todo!()
+        cpu.set_flag(M6502Flags::V, false);
+        0u8
     }
 
     fn cmp(cpu: &mut M6502, bus: &mut Bus) -> u8 {
-        todo!()
+        cpu.fetch(bus);
+        cpu.temp = (cpu.acc - cpu.fetched) as u16;
+        cpu.set_flag(M6502Flags::C, cpu.acc >= cpu.fetched);
+        cpu.set_flag(M6502Flags::Z, cpu.temp & LOW_BYTE == 0x0000);
+        cpu.set_flag(M6502Flags::N, cpu.temp & TOP_BIT_THRESH != 0x0000);
+        1u8
     }
 
     fn cpx(cpu: &mut M6502, bus: &mut Bus) -> u8 {
