@@ -291,7 +291,7 @@ impl M6502Opcodes for M6502 {
         0x0u8
     }
 
-    fn bvs(cpu: &mut M6502, bus: &mut Bus) -> u8 {
+    fn bvs(cpu: &mut M6502, _: &mut Bus) -> u8 {
         if cpu.get_flag(M6502Flags::V) == 1u8 {
             cpu.cycles += 1;
             cpu.addr_abs = cpu.pc + cpu.addr_rel;
@@ -304,29 +304,29 @@ impl M6502Opcodes for M6502 {
         0x0u8
     }
 
-    fn clc(cpu: &mut M6502, bus: &mut Bus) -> u8 {
+    fn clc(cpu: &mut M6502, _: &mut Bus) -> u8 {
         cpu.set_flag(M6502Flags::C, false);
         0x0u8
     }
 
-    fn cld(cpu: &mut M6502, bus: &mut Bus) -> u8 {
+    fn cld(cpu: &mut M6502, _: &mut Bus) -> u8 {
         cpu.set_flag(M6502Flags::D, false);
         0u8
     }
 
-    fn cli(cpu: &mut M6502, bus: &mut Bus) -> u8 {
+    fn cli(cpu: &mut M6502, _: &mut Bus) -> u8 {
         cpu.set_flag(M6502Flags::I, false);
         0u8
     }
 
-    fn clv(cpu: &mut M6502, bus: &mut Bus) -> u8 {
+    fn clv(cpu: &mut M6502, _: &mut Bus) -> u8 {
         cpu.set_flag(M6502Flags::V, false);
         0u8
     }
 
     fn cmp(cpu: &mut M6502, bus: &mut Bus) -> u8 {
         cpu.fetch(bus);
-        cpu.temp = (cpu.acc - cpu.fetched) as u16;
+        cpu.temp = (cpu.acc - cpu.fetched).into();
         cpu.set_flag(M6502Flags::C, cpu.acc >= cpu.fetched);
         cpu.set_flag(M6502Flags::Z, cpu.temp & LOW_BYTE == 0x0000);
         cpu.set_flag(M6502Flags::N, cpu.temp & TOP_BIT_THRESH != 0x0000);
