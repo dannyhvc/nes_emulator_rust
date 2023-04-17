@@ -1,3 +1,9 @@
+use std::collections::HashMap;
+use std::fmt::format;
+use std::iter;
+
+use crate::components::types::M6502Instruction;
+
 use super::bus::Bus;
 use super::types::{M6502AddrModes, M6502Flags, M6502Opcodes};
 use super::{HIGH_BYTE, LOOKUP_TABLE, LOW_BYTE, TOP_BIT_THRESH};
@@ -44,9 +50,6 @@ impl M6502 {
         }
     }
 
-    // TODO: just noticed a possible problem with race conditions and rust borrowing rules
-    // its possible that self.fetched might own the spot in the buses ram and not give it back before
-    // the next cycle. I guess we'll have to test and see
     #[inline]
     pub fn fetch(&mut self, bus: &mut Bus) -> u8 {
         if !(LOOKUP_TABLE[self.opcode as usize].2 as usize == M6502::imp as usize) {
@@ -59,8 +62,8 @@ impl M6502 {
     ### Sets or clears a specific bit of the status register
     */
     #[inline]
-    pub fn set_flag(&mut self, f: M6502Flags, v: bool) {
-        if v {
+    pub fn set_flag(&mut self, f: M6502Flags, conditional_set: bool) {
+        if conditional_set {
             self.status |= f as u8;
         } else {
             self.status |= !(f as u8) // flip da bits
@@ -70,13 +73,100 @@ impl M6502 {
     /**
     ### Returns the value of a specific bit of the status register
     */
-    #[inline]
-    pub fn get_flag(&mut self, f: M6502Flags) -> u8 {
-        return if (self.status & f as u8) > 0 {
-            1u8
-        } else {
-            0u8
+    #[inline(always)]
+    pub const fn get_flag(&self, f: M6502Flags) -> u8 {
+        return if self.status & f as u8 > 0 { 1u8 } else { 0u8 };
+    }
+
+    #[inline(always)]
+    pub const fn complete(&self) -> bool {
+        self.cycles == 0
+    }
+
+    pub fn disassemble(
+        cpu: &mut M6502,
+        bus: &mut Bus,
+        start: u16,
+        stop: u16,
+    ) -> HashMap<u16, String> {
+        let mut address: u32 = start.into();
+        let mut value: u8 = 0x00;
+        let mut low: u8 = 0x00;
+        let mut high: u8 = 0x00;
+        let mut line_address: u16 = 0;
+
+        let mut lined_maps = HashMap::<u16, String>::new();
+
+        let to_hex = |n: u32, d: u8| -> String {
+            let mut s = iter::repeat('0').take(d.into()).collect::<Vec<char>>();
+            let mut num = n;
+            let hex_alpha = "0123456789ABCDEF".chars().collect::<Vec<char>>();
+            for i in (0..=d - 1).rev() {
+                num >>= 4;
+                s[i as usize] = hex_alpha[(num & 0xF) as usize];
+            }
+            s.into_iter().collect()
         };
+
+        let get_fn_location_id = |func: fn(&mut M6502, &mut Bus) -> u8| func as usize;
+
+        while address <= stop as u32 {
+            line_address = address as u16;
+
+            let mut instruction_address: String = format!("${}{}", to_hex(address, 4), ": ");
+            let opcode: u8 = bus.read(address as u16, true);
+
+            address += 1;
+            instruction_address.push_str(format!("{} ", LOOKUP_TABLE[opcode as usize].0).as_str());
+
+            if LOOKUP_TABLE[opcode as usize].2 as usize == M6502::imp as usize {
+                instruction_address.push_str(" {IMP}");
+            } else if LOOKUP_TABLE[opcode as usize].2 as usize == M6502::imm as usize {
+                value = bus.read(address as u16, true);
+                address += 1;
+                high = 0x00;
+                let string_rep = format!("#${} {{imm}}", to_hex(low as u32, 2));
+                instruction_address.push_str(&string_rep);
+            } else if LOOKUP_TABLE[opcode as usize].2 as usize == M6502::zp0 as usize {
+                low = bus.read(address as u16, true);
+                address += 1;
+                high = 0x00;
+                let string_rep = format!("${} {{zp0}}", to_hex(low as u32, 2));
+                instruction_address.push_str(&string_rep);
+            } else if LOOKUP_TABLE[opcode as usize].2 as usize == M6502::zpx as usize {
+                low = bus.read(address as u16, true);
+                address += 1;
+                high = 0x00;
+                let string_rep = format!("${}, X {{zpx}}", to_hex(low as u32, 2));
+                instruction_address.push_str(&string_rep);
+            } else if LOOKUP_TABLE[opcode as usize].2 as usize == M6502::zpy as usize {
+                low = bus.read(address as u16, true);
+                address += 1;
+                high = 0x00;
+                let string_rep = format!("${}, Y {{zpy}}", to_hex(low as u32, 2));
+                instruction_address.push_str(&string_rep);
+            } else if LOOKUP_TABLE[opcode as usize].2 as usize == M6502::izx as usize {
+                low = bus.read(address as u16, true);
+                address += 1;
+                high = 0x00;
+                let string_rep = format!("(${}, X) {{izx}}", to_hex(low as u32, 2));
+                instruction_address.push_str(&string_rep);
+            } else if LOOKUP_TABLE[opcode as usize].2 as usize == M6502::izy as usize {
+                low = bus.read(address as u16, true);
+                address += 1;
+                high = 0x00;
+                let string_rep = format!("(${}), Y {{izy}}", to_hex(low as u32, 2));
+                instruction_address.push_str(&string_rep);
+            } else if LOOKUP_TABLE[opcode as usize].2 as usize == M6502::abs as usize {
+            } else if LOOKUP_TABLE[opcode as usize].2 as usize == M6502::abx as usize {
+            } else if LOOKUP_TABLE[opcode as usize].2 as usize == M6502::aby as usize {
+            } else if LOOKUP_TABLE[opcode as usize].2 as usize == M6502::ind as usize {
+            } else if LOOKUP_TABLE[opcode as usize].2 as usize == M6502::rel as usize {
+            } else {
+            }
+        }
+
+        todo!()
     }
 }
 
