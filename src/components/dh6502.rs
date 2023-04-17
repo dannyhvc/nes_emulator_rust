@@ -83,6 +83,7 @@ impl M6502 {
         self.cycles == 0
     }
 
+    /// .
     pub fn disassemble(
         cpu: &mut M6502,
         bus: &mut Bus,
@@ -435,6 +436,19 @@ impl M6502Opcodes for M6502 {
         1u8
     }
 
+    /// Compare X Register with Memory
+    ///
+    /// This instruction compares the contents of the X register with another
+    /// memory held value and sets the zero and carry flags as appropriate.
+    ///
+    /// # Arguments
+    ///
+    /// * `cpu` - A mutable reference to the `M6502` struct representing the CPU
+    /// * `bus` - A mutable reference to the `Bus` struct representing the system bus
+    ///
+    /// # Returns
+    ///
+    /// The result of the operation, which is always 0.
     #[inline]
     fn cpx(cpu: &mut M6502, bus: &mut Bus) -> u8 {
         cpu.temp = (cpu.x - cpu.fetch(bus)).into();
@@ -888,7 +902,21 @@ impl M6502AddrModes for M6502 {
         cpu.addr_abs = ((hi << 8u8) | lo << 8u8) as u16 >> 8u16;
         0x00
     }
-
+    
+    /// Indirect Indexed with Y Addressing Mode
+    ///
+    /// This addressing mode is used by certain instructions to access memory
+    /// indirectly, using a zero page address that is added to the Y register.
+    ///
+    /// # Arguments
+    ///
+    /// * `cpu` - A mutable reference to the `M6502` struct representing the CPU
+    /// * `bus` - A mutable reference to the `Bus` struct representing the system bus
+    ///
+    /// # Returns
+    ///
+    /// The result of the operation, which is either 0 or 1 depending on whether
+    /// the operation resulted in a page boundary crossing.
     fn izy(cpu: &mut M6502, bus: &mut Bus) -> u8 {
         let t = bus.read(cpu.pc, false);
         cpu.pc += 1;
