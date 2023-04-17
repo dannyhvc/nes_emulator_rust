@@ -47,6 +47,7 @@ impl M6502 {
     // TODO: just noticed a possible problem with race conditions and rust borrowing rules
     // its possible that self.fetched might own the spot in the buses ram and not give it back before
     // the next cycle. I guess we'll have to test and see
+    #[inline]
     pub fn fetch(&mut self, bus: &mut Bus) -> u8 {
         if !(LOOKUP_TABLE[self.opcode as usize].2 as usize == M6502::imp as usize) {
             self.fetched = bus.read(self.addr_abs, false);
@@ -69,6 +70,7 @@ impl M6502 {
     /**
     ### Returns the value of a specific bit of the status register
     */
+    #[inline]
     pub fn get_flag(&mut self, f: M6502Flags) -> u8 {
         return if (self.status & f as u8) > 0 {
             1u8
@@ -608,26 +610,31 @@ impl M6502Opcodes for M6502 {
         0u8
     }
 
+    #[inline]
     fn sei(cpu: &mut M6502, _: &mut Bus) -> u8 {
         cpu.set_flag(M6502Flags::I, true);
         0u8
     }
 
+    #[inline]
     fn sta(cpu: &mut M6502, bus: &mut Bus) -> u8 {
         bus.write(cpu.addr_abs, cpu.acc);
         0u8
     }
 
+    #[inline]
     fn stx(cpu: &mut M6502, bus: &mut Bus) -> u8 {
         bus.write(cpu.addr_abs, cpu.x);
         0u8
     }
 
+    #[inline]
     fn sty(cpu: &mut M6502, bus: &mut Bus) -> u8 {
         bus.write(cpu.addr_abs, cpu.y);
         0u8
     }
 
+    #[inline]
     fn tax(cpu: &mut M6502, _: &mut Bus) -> u8 {
         cpu.x = cpu.acc;
         cpu.set_flag(M6502Flags::Z, cpu.x == 0x00);
@@ -635,6 +642,7 @@ impl M6502Opcodes for M6502 {
         0u8
     }
 
+    #[inline]
     fn tay(cpu: &mut M6502, _: &mut Bus) -> u8 {
         cpu.y = cpu.acc;
         cpu.set_flag(M6502Flags::Z, cpu.y == 0x00);
@@ -642,6 +650,7 @@ impl M6502Opcodes for M6502 {
         0u8
     }
 
+    #[inline]
     fn tsx(cpu: &mut M6502, _: &mut Bus) -> u8 {
         cpu.x = cpu.stkp;
         cpu.set_flag(M6502Flags::Z, cpu.x == 0x00);
@@ -649,6 +658,7 @@ impl M6502Opcodes for M6502 {
         0u8
     }
 
+    #[inline]
     fn txa(cpu: &mut M6502, _: &mut Bus) -> u8 {
         cpu.acc = cpu.x;
         cpu.set_flag(M6502Flags::Z, cpu.acc == 0x00);
@@ -656,11 +666,13 @@ impl M6502Opcodes for M6502 {
         0u8
     }
 
+    #[inline(always)]
     fn txs(cpu: &mut M6502, _: &mut Bus) -> u8 {
         cpu.stkp = cpu.x;
         0u8
     }
 
+    #[inline]
     fn tya(cpu: &mut M6502, _: &mut Bus) -> u8 {
         cpu.acc = cpu.y;
         cpu.set_flag(M6502Flags::Z, cpu.acc == 0x00);
@@ -668,6 +680,7 @@ impl M6502Opcodes for M6502 {
         0u8
     }
 
+    #[inline(always)]
     fn xxx(_: &mut M6502, _: &mut Bus) -> u8 {
         0u8
     }
