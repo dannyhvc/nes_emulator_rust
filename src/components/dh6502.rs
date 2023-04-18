@@ -80,7 +80,6 @@ impl M6502 {
         self.cycles == 0
     }
 
-    #[allow(dead_code)]
     pub fn disassemble(bus: &mut Bus, start: u16, stop: u16) -> HashMap<u16, String> {
         let mut address: u32 = start.into();
         let mut value: u8 = 0x00;
