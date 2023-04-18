@@ -7,9 +7,9 @@ This is an NES emulator written in Rust.
 -----
 
 - [x] CPU
-- [x] PPU
-- [x] APU
-- [x] Mapper 0
+- [ ] PPU
+- [ ] APU
+- [ ] Mapper 0
 - [ ] Mapper 1
 - [ ] Mapper 2
 - [ ] Mapper 3
