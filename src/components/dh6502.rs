@@ -80,33 +80,26 @@ impl M6502 {
         self.cycles == 0
     }
 
-    /// .
-    pub fn disassemble(
-        cpu: &mut M6502,
-        bus: &mut Bus,
-        start: u16,
-        stop: u16,
-    ) -> HashMap<u16, String> {
+    #[allow(dead_code)]
+    pub fn disassemble(bus: &mut Bus, start: u16, stop: u16) -> HashMap<u16, String> {
         let mut address: u32 = start.into();
         let mut value: u8 = 0x00;
         let mut low: u8 = 0x00;
         let mut high: u8 = 0x00;
         let mut line_address: u16 = 0;
 
-        let mut lined_maps = HashMap::<u16, String>::new();
+        let mut lined_maps: HashMap<u16, String> = HashMap::<u16, String>::new();
 
         let to_hex = |n: u32, d: u8| -> String {
-            let mut s = iter::repeat('0').take(d.into()).collect::<Vec<char>>();
-            let mut num = n;
-            let hex_alpha = "0123456789ABCDEF".chars().collect::<Vec<char>>();
+            let mut s: Vec<char> = iter::repeat('0').take(d.into()).collect::<Vec<char>>();
+            let mut num: u32 = n;
+            let hex_alpha: Vec<char> = "0123456789ABCDEF".chars().collect::<Vec<char>>();
             for i in (0..=d - 1).rev() {
                 num >>= 4;
                 s[i as usize] = hex_alpha[(num & 0xF) as usize];
             }
             s.into_iter().collect()
         };
-
-        let get_fn_location_id = |func: fn(&mut M6502, &mut Bus) -> u8| func as usize;
 
         while address <= stop as u32 {
             line_address = address as u16;
@@ -156,21 +149,47 @@ impl M6502 {
                 let string_rep = format!("(${}), Y {{izy}}", to_hex(low as u32, 2));
                 instruction_address.push_str(&string_rep);
             } else if LOOKUP_TABLE[opcode as usize].2 as usize == M6502::abs as usize {
-                todo!()
+                low = bus.read(address as u16, false);
+                address += 1;
+                high = bus.read(address as u16, false);
+                address += 1;
+                let string_rep = format!("${} {{abs}}", to_hex(((high << 8) | low) as u32, 4));
+                instruction_address.push_str(&string_rep);
             } else if LOOKUP_TABLE[opcode as usize].2 as usize == M6502::abx as usize {
-                todo!()
+                low = bus.read(address as u16, false);
+                address += 1;
+                high = bus.read(address as u16, false);
+                address += 1;
+                let string_rep = format!("${} {{abx}}", to_hex(((high << 8) | low) as u32, 4));
+                instruction_address.push_str(&string_rep);
             } else if LOOKUP_TABLE[opcode as usize].2 as usize == M6502::aby as usize {
-                todo!()
+                low = bus.read(address as u16, false);
+                address += 1;
+                high = bus.read(address as u16, false);
+                address += 1;
+                let string_rep = format!("${} {{aby}}", to_hex(((high << 8) | low) as u32, 4));
+                instruction_address.push_str(&string_rep);
             } else if LOOKUP_TABLE[opcode as usize].2 as usize == M6502::ind as usize {
-                todo!()
+                low = bus.read(address as u16, false);
+                address += 1;
+                high = bus.read(address as u16, false);
+                address += 1;
+                let string_rep = format!("(${}) {{ind}}", to_hex(((high << 8) | low) as u32, 4));
+                instruction_address.push_str(&string_rep);
             } else if LOOKUP_TABLE[opcode as usize].2 as usize == M6502::rel as usize {
-                todo!()
-            } else {
-                todo!()
+                value = bus.read(address as u16, false);
+                address += 1;
+                let string_rep = format!(
+                    "${} [${}] {{rel}}",
+                    to_hex(value as u32, 2),
+                    to_hex(address + value as u32, 4)
+                );
+                instruction_address.push_str(&string_rep);
             }
+            lined_maps.insert(line_address, instruction_address.clone());
         }
 
-        todo!()
+        lined_maps
     }
 }
 
