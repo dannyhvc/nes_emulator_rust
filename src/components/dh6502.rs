@@ -1,8 +1,5 @@
 use std::collections::HashMap;
-use std::fmt::format;
 use std::iter;
-
-use crate::components::types::M6502Instruction;
 
 use super::bus::Bus;
 use super::types::{M6502AddrModes, M6502Flags, M6502Opcodes};
@@ -159,11 +156,17 @@ impl M6502 {
                 let string_rep = format!("(${}), Y {{izy}}", to_hex(low as u32, 2));
                 instruction_address.push_str(&string_rep);
             } else if LOOKUP_TABLE[opcode as usize].2 as usize == M6502::abs as usize {
+                todo!()
             } else if LOOKUP_TABLE[opcode as usize].2 as usize == M6502::abx as usize {
+                todo!()
             } else if LOOKUP_TABLE[opcode as usize].2 as usize == M6502::aby as usize {
+                todo!()
             } else if LOOKUP_TABLE[opcode as usize].2 as usize == M6502::ind as usize {
+                todo!()
             } else if LOOKUP_TABLE[opcode as usize].2 as usize == M6502::rel as usize {
+                todo!()
             } else {
+                todo!()
             }
         }
 
@@ -876,7 +879,7 @@ impl M6502AddrModes for M6502 {
         let pointer_hi = bus.read(cpu.pc as u16, false) as u16;
         cpu.pc += 1;
 
-        let ptr = (pointer_hi << 8u16) | pointer_lo;
+        let ptr: u16 = (pointer_hi << 8u16) | pointer_lo;
 
         let lo: u32;
         let hi: u32;
@@ -892,8 +895,50 @@ impl M6502AddrModes for M6502 {
         0x00
     }
 
+    /// Indirect Zero-Page Indexed with X Addressing Mode
+    ///
+    /// This addressing mode is used by certain instructions to access memory indirectly,
+    /// using a zero page address that is added to the X register. The address is read
+    /// from the zero page address (t + X) and the low byte is used as the lower 8 bits
+    /// of the effective address, while the high byte is fetched from the next location
+    /// in memory (t + X + 1), wrapping around if necessary. This results in an effective
+    /// address that can range from 0x0000 to 0xFFFF, with the X register being added to
+    /// the zero page address t, and the page boundary crossing detection being performed
+    /// on the resulting effective address.
+    ///
+    /// # Arguments
+    ///
+    /// * `cpu` - A mutable reference to the [`M6502`] struct representing the CPU
+    /// * `bus` - A mutable reference to the [`Bus`] struct representing the system bus
+    ///
+    /// # Returns
+    ///
+    /// The result of the operation, which is always 0x00.
+    ///
+    /// # Examples
+    ///```rust
+    /// use rust6502::M6502;
+    /// use rust6502::Bus;
+    /// let mut cpu = M6502::new();
+    /// let mut bus = Bus::new();
+    ///
+    /// cpu.x = 0x04;
+    /// bus.write(0x10, 0x05);
+    /// bus.write(0x11, 0x06);
+    /// bus.write(0x0605, 0x42);
+    ///
+    /// assert_eq!(cpu.pc, 0x0000);
+    /// assert_eq!(cpu.addr_abs, 0x0000);
+    ///
+    /// M6502::izx(&mut cpu, &mut bus);
+    /// assert_eq!(cpu.pc, 0x0001);
+    /// assert_eq!(cpu.addr_abs, 0x4205);
+    ///
+    /// let result = bus.read(cpu.addr_abs, true);
+    /// assert_eq!(result, 0x42);
+    /// ```
     fn izx(cpu: &mut M6502, bus: &mut Bus) -> u8 {
-        let t = bus.read(cpu.pc, false);
+        let t: u8 = bus.read(cpu.pc, false);
         cpu.pc += 1;
 
         let lo: u32 = bus.read((t + cpu.x) as u16 & LOW_BYTE, false).into();
@@ -902,7 +947,7 @@ impl M6502AddrModes for M6502 {
         cpu.addr_abs = ((hi << 8u8) | lo << 8u8) as u16 >> 8u16;
         0x00
     }
-    
+
     /// Indirect Indexed with Y Addressing Mode
     ///
     /// This addressing mode is used by certain instructions to access memory
@@ -910,8 +955,8 @@ impl M6502AddrModes for M6502 {
     ///
     /// # Arguments
     ///
-    /// * `cpu` - A mutable reference to the `M6502` struct representing the CPU
-    /// * `bus` - A mutable reference to the `Bus` struct representing the system bus
+    /// * `cpu` - A mutable reference to the [`M6502`] struct representing the CPU
+    /// * `bus` - A mutable reference to the [`Bus`] struct representing the system bus
     ///
     /// # Returns
     ///
