@@ -891,7 +891,33 @@ impl M6502AddrModes for M6502 {
         }
         0x00
     }
-
+    /// This function implements the "Indirect" addressing mode for the M6502 CPU.
+    /// It reads the two bytes located at the program counter address, and uses them as a 16-bit pointer
+    /// to read the actual 16-bit address from memory, which is then stored in the cpu's addr_abs register.
+    ///
+    /// # Arguments
+    ///
+    /// * `cpu` - A mutable reference to the [`M6502`] CPU.
+    /// * `bus` - A mutable reference to the [`Bus`] struct representing the system bus
+    ///
+    /// # Returns
+    ///
+    /// This function always returns 0x00, as this addressing mode doesn't perform any actual computation.
+    ///
+    /// # Example
+    ///
+    ///```
+    /// # use rust_computer_emulator::components::{M6502, Bus};
+    /// # let mut cpu = M6502::new();
+    /// # let mut bus = Bus::new();
+    /// cpu.pc = 0x1000;
+    /// bus.write(0x1000, 0x42);
+    /// bus.write(0x1001, 0x84);
+    ///
+    /// let result = M6502::ind(&mut cpu, &mut bus);
+    /// assert_eq!(cpu.addr_abs, 0x8442);
+    /// assert_eq!(result, 0x00);
+    ///```
     fn ind(cpu: &mut M6502, bus: &mut Bus) -> u8 {
         let pointer_lo = bus.read(cpu.pc, false) as u16;
         cpu.pc += 1;
