@@ -1,15 +1,15 @@
+use super::{bus::Bus, dh6502::M6502};
+use custom_error::custom_error;
 use std::{
-    cell::{Ref, RefCell},
-    rc::{Rc, Weak},
+    cell::RefCell,
+    rc::Weak,
 };
 
-use super::{bus::Bus, dh6502::M6502};
-
-#[derive(PartialEq, Eq, Clone, Copy)]
-pub enum CriticalCpuError {
-    Segfault,
-    StackOverflow,
-    Race,
+// TODO: add an actual error call hierarchy
+custom_error! {
+    CriticalCpuError
+    Bad      = "Something bad happened",
+    Terrible = "This is a very serious error!!!"
 }
 
 /* Weak refrence */
@@ -19,48 +19,53 @@ pub type RWref<V, E> = Result<Weak<RefCell<V>>, E>;
 
 #[derive(PartialEq, Eq)]
 pub enum M6502Flags {
-    E = (0),      // Empty default
-    C = (1 << 0), // Carry Bit
-    Z = (1 << 1), // Zero
-    I = (1 << 2), // Disable Interrupts
-    D = (1 << 3), // Decimal Mode (unused in this implementation)
-    B = (1 << 4), // Break
-    U = (1 << 5), // Unused
-    V = (1 << 6), // Overflow
-    N = (1 << 7), // Negative
+    E = 0,      // Empty default
+    C = 1 << 0, // Carry Bit
+    Z = 1 << 1, // Zero
+    I = 1 << 2, // Disable Interrupts
+    D = 1 << 3, // Decimal Mode (unused in this implementation)
+    B = 1 << 4, // Break
+    U = 1 << 5, // Unused
+    V = 1 << 6, // Overflow
+    N = 1 << 7, // Negative
 }
 
-/**
- * TODO:
- *  add ppu
- *  add apu
- *  add cartrages
- *  add i/o
- */
-pub struct NesDeviceStack {
-    cpu: Rc<RefCell<M6502>>,
-}
-
-/**
-```This structure and the following vector are used to compile and store
-the opcode translation table. The 6502 can effectively have 256
-different instructions. Each of these are stored in a table in numerical
-order so they can be looked up easily, with no decoding required.
-
-Each table entry holds:
-   Pneumonic : A textual representation of the instruction (used for disassembly)
-   Opcode Function: A function pointer to the implementation of the opcode
-   Opcode Address Mode : A function pointer to the implementation of the
-                         addressing mechanism used by the instruction
-   Cycle Count : An integer that represents the base number of clock cycles the
-                 self requires to perform the instruction
-```
-*/
+/// A struct representing an instruction for the MOS 6502 microprocessor.
+///
+/// This structure and the following vector are used to compile and store
+/// the opcode translation table. The 6502 can effectively have 256
+/// different instructions. Each of these are stored in a table in numerical
+/// order so they can be looked up easily, with no decoding required.
+/// This struct contains four fields:
+///
+/// - `0`: A string literal representing the mnemonic for the instruction.
+/// - `1`: A function pointer representing the opcode implementation.
+/// - `2`: A function pointer representing the addressing mode implementation.
+/// - `3`: An unsigned 8-bit integer representing the cycle count for the instruction.
+///
+/// The `fn(&mut M6502, &mut Bus) -> u8` function pointers are expected to implement the
+/// opcode and addressing mode logic for the instruction, respectively.
+///
+/// # Examples
+///
+/// ```
+/// # use crate::components::M6502;
+/// # use crate::bus::Bus;
+/// # fn example() {
+/// let instruction = M6502Instruction(
+///     "LDA",
+///     M6502::lda,
+///     M6502::imm,
+///     2,
+/// );
+///
+/// assert_eq!(instruction.0, "LDA");
+/// ```
 pub struct M6502Instruction(
-    pub &'static str, // TODO: might need to be a ref idk yet
+    pub &'static str,
     pub for<'a, 'b> fn(&'a mut M6502, &'b mut Bus) -> u8, // OPCODE
     pub for<'a, 'b> fn(&'a mut M6502, &'b mut Bus) -> u8, // ADDRESSING MODE
-    pub u8,           // CYCLE COUNT
+    pub u8,                                               // CYCLE COUNT
 );
 
 pub trait M6502Opcodes {

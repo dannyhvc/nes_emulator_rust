@@ -10,6 +10,9 @@ pub mod types;
 
 const BOTTOM_OF_RAM: u16 = 0x0000;
 const TOP_OF_RAM: u16 = 0xFFFF;
+const HIGH_BYTE: u16 = 0xFF00;
+const LOW_BYTE: u16 = 0x00FF;
+const TOP_BIT_THRESH: u16 = 0x80;
 
 // 6502 lookup table
 // for logging but may be left alone for now
