@@ -1,4 +1,4 @@
-use super::{bus::Bus, dh6502::M6502};
+use super::{bus::Bus, dh6502_cpu::M6502};
 use custom_error::custom_error;
 use std::{
     cell::RefCell,

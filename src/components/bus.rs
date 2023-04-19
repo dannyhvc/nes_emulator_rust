@@ -5,8 +5,11 @@ pub struct Bus {
     pub ram: [u8; 64 * 1024], // for now
 }
 impl Bus {
+    /// Creates a new [`Bus`]. With 2Kb of MOS 6502 memory
     pub fn new() -> Self {
-        todo!()
+        Self {
+            ram: [0u8; 64 * 1024],
+        }
     }
 
     #[inline]

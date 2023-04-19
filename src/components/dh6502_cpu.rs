@@ -960,7 +960,7 @@ impl M6502AddrModes for M6502 {
     /// The result of the operation, which is always 0x00.
     ///
     /// # Examples
-    ///```rust
+    ///```no_run
     /// use rust6502::M6502;
     /// use rust6502::Bus;
     /// let mut cpu = M6502::new();

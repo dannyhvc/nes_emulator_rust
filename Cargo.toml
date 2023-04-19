@@ -7,3 +7,4 @@ edition = "2021"
 
 [dependencies]
 custom_error = "1.9.2"
+piston_window = "0.128.0"
