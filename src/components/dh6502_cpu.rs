@@ -1,5 +1,6 @@
 use std::collections::HashMap;
-use std::iter;
+
+use crate::util::helper_func as helpers;
 
 use super::bus::Bus;
 use super::types::{M6502AddrModes, M6502Flags, M6502Opcodes};
@@ -17,19 +18,18 @@ pub struct M6502 {
     pub status: u8, // Status Register
 
     // Assisstive variables to facilitate emulation
-    pub fetched: u8,   // Represents the working input value to the ALU
-    pub temp: u16,     // A convenience variable used everywhere
-    pub addr_abs: u16, // All used memory addresses end up in here
-    pub addr_rel: u16, // Represents absolute address following a branch
-    pub opcode: u8,    // Is the instruction byte
-    pub cycles: u8,    // Counts how many cycles the instruction has remaining
+    pub fetched: u8,      // Represents the working input value to the ALU
+    pub temp: u16,        // A convenience variable used everywhere
+    pub addr_abs: u16,    // All used memory addresses end up in here
+    pub addr_rel: u16,    // Represents absolute address following a branch
+    pub opcode: u8,       // Is the instruction byte
+    pub cycles: u8,       // Counts how many cycles the instruction has remaining
     pub clock_count: u32, // A global accumulation of the number of clocks
-                       // pub logs: Option<File>,
 }
 
 impl M6502 {
     #[inline]
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self {
             acc: 0x00,
             x: 0x00,
@@ -47,17 +47,81 @@ impl M6502 {
         }
     }
 
+    /// Fetches the next byte of data from the specified address in memory.
+    ///
+    /// # Arguments
+    ///
+    /// * `bus` - A reference to the system bus.
+    ///
+    /// # Description
+    ///
+    /// The `fetch` function retrieves the next byte of data from the specified address in memory, as determined
+    /// by the current instruction being executed. If the current instruction is using an implied addressing mode,
+    /// no memory access is performed and the fetched value remains unchanged. Otherwise, the `addr_abs` field of
+    /// the CPU is used to retrieve the value from memory, and the result is stored in the `fetched` field of the CPU.
+    ///
+    /// # Return value
+    ///
+    /// The function returns the fetched value.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use emulator_6502::{M6502, Bus};
+    ///
+    /// let mut cpu = M6502::new();
+    /// let mut bus = Bus::new();
+    ///
+    /// // Set up the bus with some data at address 0x1234
+    /// bus.write(0x1234, 0xAB);
+    ///
+    /// // Set the CPU's program counter to point to an instruction that fetches from 0x1234
+    /// cpu.pc = 0x8000;
+    /// cpu.opcode = 0xAD;
+    /// cpu.addr_abs = 0x1234;
+    ///
+    /// // Fetch the byte of data from the specified address
+    /// let fetched_value = cpu.fetch(&mut bus);
+    ///
+    /// assert_eq!(fetched_value, 0xAB);
+    /// assert_eq!(cpu.fetched, 0xAB);
+    /// ```
+    ///
     #[inline]
-    pub fn fetch(&mut self, bus: &mut Bus) -> u8 {
+    pub fn fetch(&mut self, bus: &Bus) -> u8 {
         if !(LOOKUP_TABLE[self.opcode as usize].2 as usize == M6502::imp as usize) {
             self.fetched = bus.read(self.addr_abs, false);
         }
         self.fetched
     }
 
-    /**
-    ### Sets or clears a specific bit of the status register
-    */
+    /// Sets or clears the specified flag in the M6502 CPU status register.
+    ///
+    /// # Arguments
+    ///
+    /// * `f` - The flag to set or clear.
+    /// * `conditional_set` - A boolean value indicating whether to set or clear the flag.
+    ///
+    /// # Description
+    ///
+    /// The `set_flag` function is used to set or clear the specified flag in the [`M6502`] CPU status register.
+    /// The `conditional_set` parameter determines whether the flag is set or cleared. If `conditional_set`
+    /// is true, the flag is set. Otherwise, the flag is cleared. The status register is updated accordingly.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use emulator_6502::{M6502, M6502Flags};
+    ///
+    /// let mut cpu = M6502::new();
+    ///
+    /// cpu.set_flag(M6502Flags::C, true); // Set the carry flag
+    /// assert_eq!(cpu.status, 0x01);
+    ///
+    /// cpu.set_flag(M6502Flags::C, false); // Clear the carry flag
+    /// assert_eq!(cpu.status, 0x00);
+    /// ```
+    ///
     #[inline]
     pub fn set_flag(&mut self, f: M6502Flags, conditional_set: bool) {
         if conditional_set {
@@ -67,127 +131,334 @@ impl M6502 {
         }
     }
 
-    /**
-    ### Returns the value of a specific bit of the status register
-    */
+    /// Resets the M6502 CPU, initializing its registers and program counter.
+    ///
+    /// # Arguments
+    ///
+    /// * `cpu` - A mutable reference to the [`M6502`] CPU struct to reset.
+    /// * `bus` - A reference to the system [`Bus`] used to read the reset vector from memory.
+    ///
+    /// # Description
+    ///
+    /// The `reset` function is used to reset the M6502 CPU to its initial state. It sets the program counter
+    /// to the address stored in the reset vector (0xFFFC), initializes the CPU registers and flags, and sets
+    /// the number of cycles to 8.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use emulator_6502::{M6502, Bus};
+    ///
+    /// let mut cpu = M6502::new();
+    /// let bus = Bus::new();
+    ///
+    /// M6502::reset(&mut cpu, &bus);
+    ///
+    /// assert_eq!(cpu.pc, 0x0000);
+    /// assert_eq!(cpu.acc, 0x00);
+    /// assert_eq!(cpu.x, 0x00);
+    /// assert_eq!(cpu.y, 0x00);
+    /// assert_eq!(cpu.stkp, 0xFD);
+    /// assert_eq!(cpu.status, 0x04);
+    /// assert_eq!(cpu.addr_rel, 0x0000);
+    /// assert_eq!(cpu.addr_abs, 0x0000);
+    /// assert_eq!(cpu.fetched, 0x00);
+    /// assert_eq!(cpu.cycles, 8);
+    /// ```
+    ///
+    pub fn reset(cpu: &mut M6502, bus: &Bus) {
+        cpu.addr_abs = 0xFFFC;
+        let low: u16 = bus.read(cpu.addr_abs + 0, false) as u16;
+        let high: u16 = bus.read(cpu.addr_abs + 1, false) as u16;
+
+        cpu.pc = (high << 8) << low;
+
+        cpu.acc = 0;
+        cpu.x = 0;
+        cpu.y = 0;
+        cpu.stkp = 0xFD;
+        cpu.status = 0x00 | M6502Flags::U as u8;
+
+        cpu.addr_rel = 0x0000;
+        cpu.addr_abs = 0x0000;
+        cpu.fetched = 0x00;
+
+        cpu.cycles = 8; // resets take a long time
+    }
+
+    // Simulates a clock cycle of the 6502 CPU.
+    ///
+    /// This function is responsible for fetching and executing the current instruction pointed to by the program counter (PC) of the CPU.
+    /// It reads the opcode from memory using the bus, sets the U flag, and advances the PC.
+    /// It then looks up the number of cycles required to execute the instruction from a lookup table, adds any additional cycles required,
+    /// and updates the CPU's cycle count accordingly.
+    ///
+    /// # Arguments
+    ///
+    /// * `cpu` - A mutable reference to the [`M6502`] struct representing the 6502 CPU being simulated.
+    /// * `bus` - A mutable reference to the [`Bus`] struct representing the memory and I/O bus connected to the CPU.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// let mut cpu = M6502::new();
+    /// let mut bus = Bus::new();
+    /// M6502::clock(&mut cpu, &mut bus);
+    /// ```
+    pub fn clock(cpu: &mut M6502, bus: &mut Bus) {
+        if cpu.complete() {
+            cpu.opcode = bus.read(cpu.pc, true);
+            cpu.set_flag(M6502Flags::U, true);
+            cpu.pc += 1;
+            cpu.cycles = LOOKUP_TABLE[cpu.opcode as usize].3;
+
+            let added_cycle1: u8 = LOOKUP_TABLE[cpu.opcode as usize].1(cpu, bus);
+            let added_cycle2: u8 = LOOKUP_TABLE[cpu.opcode as usize].2(cpu, bus);
+
+            cpu.cycles += added_cycle1 & added_cycle2;
+            cpu.set_flag(M6502Flags::U, true);
+        }
+        cpu.clock_count += 1;
+        cpu.cycles -= 1;
+    }
+
+    /// Returns the value of a specific flag in the status register.
+    ///
+    /// # Arguments
+    ///
+    /// * `self` - A reference to the M6502 CPU struct containing the status register.
+    /// * `f` - The flag to retrieve the value of, represented as a `M6502Flags` enum variant.
+    ///
+    /// # Returns
+    ///
+    /// `1` if the specified flag is set in the status register, `0` otherwise.
+    ///
+    /// # Description
+    ///
+    /// The `get_flag` function is used to retrieve the value of a specific flag in the status register.
+    /// The `f` argument is an enum variant of the `M6502Flags` type, representing the flag to retrieve the
+    /// value of. The function returns `1` if the specified flag is set in the status register, and `0`
+    /// otherwise.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use emulator_6502::{M6502Flags, M6502};
+    ///
+    /// let mut cpu = M6502::new();
+    /// cpu.status = M6502Flags::C as u8 | M6502Flags::Z as u8;
+    ///
+    /// assert_eq!(cpu.get_flag(M6502Flags::C), 1);
+    /// assert_eq!(cpu.get_flag(M6502Flags::Z), 1);
+    /// assert_eq!(cpu.get_flag(M6502Flags::I), 0);
+    /// ```
+    ///
     #[inline(always)]
     pub const fn get_flag(&self, f: M6502Flags) -> u8 {
         return if self.status & f as u8 > 0 { 1u8 } else { 0u8 };
     }
 
+    /// Returns a boolean indicating whether the current operation is complete or not.
+    ///
+    /// # Arguments
+    ///
+    /// * `self` - A reference to the struct containing the operation information.
+    ///
+    /// # Returns
+    ///
+    /// `true` if the operation has completed, `false` otherwise.
+    ///
+    /// # Description
+    ///
+    /// The `complete` function is used to check if the current operation has completed. It returns `true`
+    /// if the `cycles` field of the struct is equal to zero, indicating that the operation has completed.
+    /// Otherwise, it returns `false`, indicating that the operation is still in progress and needs to be
+    /// executed for additional cycles.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// struct Operation {
+    ///     Cycles: u8,
+    /// }
+    ///
+    /// let operation = Operation { Cycles: 0 };
+    ///
+    /// assert!(operation.complete());
+    /// ```
+    ///
     #[inline(always)]
     pub const fn complete(&self) -> bool {
         self.cycles == 0
     }
 
+    /// Disassembles the code within the specified memory range [start, stop] and returns a HashMap containing the
+    /// disassembled code, with the key being the address of the instruction and the value being a String representation
+    /// of the instruction.
+    ///
+    /// # Arguments
+    ///
+    /// * bus - A mutable reference to the [`Bus`] object used to access the memory of the CPU.
+    /// * start - The starting address of the memory range to disassemble.
+    /// * stop - The ending address of the memory range to disassemble.
+    ///
+    /// # Returns
+    ///
+    /// A HashMap<u16, String> containing the disassembled code, with the key being the address of the instruction and
+    /// the value being a String representation of the instruction.
     pub fn disassemble(bus: &mut Bus, start: u16, stop: u16) -> HashMap<u16, String> {
+        // Initialize variables for tracking the current address, instruction value, and line address.
         let mut address: u32 = start.into();
         let mut value: u8 = 0x00;
         let mut low: u8 = 0x00;
         let mut high: u8 = 0x00;
         let mut line_address: u16 = 0;
 
+        // Create a HashMap to store the resulting instructions with their corresponding line address.
         let mut lined_maps: HashMap<u16, String> = HashMap::<u16, String>::new();
 
-        let to_hex = |n: u32, d: u8| -> String {
-            let mut s: Vec<char> = iter::repeat('0').take(d.into()).collect::<Vec<char>>();
-            let mut num: u32 = n;
-            let hex_alpha: Vec<char> = "0123456789ABCDEF".chars().collect::<Vec<char>>();
-            for i in (0..=d - 1).rev() {
-                num >>= 4;
-                s[i as usize] = hex_alpha[(num & 0xF) as usize];
-            }
-            s.into_iter().collect()
-        };
-
+        // Loop through memory between start and stop addresses.
         while address <= stop as u32 {
             line_address = address as u16;
 
-            let mut instruction_address: String = format!("${}{}", to_hex(address, 4), ": ");
+            // Initialize a string to hold the address and instruction for the current line.
+            let mut instruction_address: String =
+                format!("${}{}", helpers::to_hex(address, 4), ": ");
+
+            // Read the opcode from memory at the current address.
             let opcode: u8 = bus.read(address as u16, true);
 
             address += 1;
             instruction_address.push_str(format!("{} ", LOOKUP_TABLE[opcode as usize].0).as_str());
 
             if LOOKUP_TABLE[opcode as usize].2 as usize == M6502::imp as usize {
+                // Implied addressing mode (no operand)
+
                 instruction_address.push_str(" {IMP}");
             } else if LOOKUP_TABLE[opcode as usize].2 as usize == M6502::imm as usize {
+                // Immediate addressing mode (8-bit immediate value)
+
                 value = bus.read(address as u16, true);
                 address += 1;
                 high = 0x00;
-                let string_rep = format!("#${} {{imm}}", to_hex(low as u32, 2));
+                let string_rep = format!("#${} {{imm}}", helpers::to_hex(low as u32, 2));
                 instruction_address.push_str(&string_rep);
             } else if LOOKUP_TABLE[opcode as usize].2 as usize == M6502::zp0 as usize {
+                // Zero Page addressing mode (8-bit memory location address)
+
                 low = bus.read(address as u16, true);
                 address += 1;
                 high = 0x00;
-                let string_rep = format!("${} {{zp0}}", to_hex(low as u32, 2));
+                let string_rep = format!("${} {{zp0}}", helpers::to_hex(low as u32, 2));
                 instruction_address.push_str(&string_rep);
             } else if LOOKUP_TABLE[opcode as usize].2 as usize == M6502::zpx as usize {
+                // Zero Page X addressing mode (8-bit memory location address + X register)
+
                 low = bus.read(address as u16, true);
                 address += 1;
                 high = 0x00;
-                let string_rep = format!("${}, X {{zpx}}", to_hex(low as u32, 2));
+                let string_rep = format!("${}, X {{zpx}}", helpers::to_hex(low as u32, 2));
                 instruction_address.push_str(&string_rep);
             } else if LOOKUP_TABLE[opcode as usize].2 as usize == M6502::zpy as usize {
+                // Zero Page Y addressing mode (8-bit memory location address + X register)
+
                 low = bus.read(address as u16, true);
                 address += 1;
                 high = 0x00;
-                let string_rep = format!("${}, Y {{zpy}}", to_hex(low as u32, 2));
+                let string_rep = format!("${}, Y {{zpy}}", helpers::to_hex(low as u32, 2));
                 instruction_address.push_str(&string_rep);
             } else if LOOKUP_TABLE[opcode as usize].2 as usize == M6502::izx as usize {
+                // If the opcode's addressing mode is indexed indirect with X offset, get the next
+                // byte, format it as a hex string with "($...,X)" and add it to the instruction address.
+
                 low = bus.read(address as u16, true);
                 address += 1;
                 high = 0x00;
-                let string_rep = format!("(${}, X) {{izx}}", to_hex(low as u32, 2));
+                let string_rep = format!("(${}, X) {{izx}}", helpers::to_hex(low as u32, 2));
                 instruction_address.push_str(&string_rep);
             } else if LOOKUP_TABLE[opcode as usize].2 as usize == M6502::izy as usize {
+                // If the opcode's addressing mode is indirect indexed with Y offset, get the next
+                // byte, format it as a hex string with "($...),Y" and add it to the instruction address.
+
                 low = bus.read(address as u16, true);
                 address += 1;
                 high = 0x00;
-                let string_rep = format!("(${}), Y {{izy}}", to_hex(low as u32, 2));
+                let string_rep = format!("(${}), Y {{izy}}", helpers::to_hex(low as u32, 2));
                 instruction_address.push_str(&string_rep);
             } else if LOOKUP_TABLE[opcode as usize].2 as usize == M6502::abs as usize {
+                // If the opcode's addressing mode is absolute, get the next two bytes, combine them,
+                // format them as a hex string with "{abs}", and add it to the instruction address.
+
                 low = bus.read(address as u16, false);
                 address += 1;
                 high = bus.read(address as u16, false);
-                address += 1;
-                let string_rep = format!("${} {{abs}}", to_hex(((high << 8) | low) as u32, 4));
-                instruction_address.push_str(&string_rep);
-            } else if LOOKUP_TABLE[opcode as usize].2 as usize == M6502::abx as usize {
-                low = bus.read(address as u16, false);
-                address += 1;
-                high = bus.read(address as u16, false);
-                address += 1;
-                let string_rep = format!("${} {{abx}}", to_hex(((high << 8) | low) as u32, 4));
-                instruction_address.push_str(&string_rep);
-            } else if LOOKUP_TABLE[opcode as usize].2 as usize == M6502::aby as usize {
-                low = bus.read(address as u16, false);
-                address += 1;
-                high = bus.read(address as u16, false);
-                address += 1;
-                let string_rep = format!("${} {{aby}}", to_hex(((high << 8) | low) as u32, 4));
-                instruction_address.push_str(&string_rep);
-            } else if LOOKUP_TABLE[opcode as usize].2 as usize == M6502::ind as usize {
-                low = bus.read(address as u16, false);
-                address += 1;
-                high = bus.read(address as u16, false);
-                address += 1;
-                let string_rep = format!("(${}) {{ind}}", to_hex(((high << 8) | low) as u32, 4));
-                instruction_address.push_str(&string_rep);
-            } else if LOOKUP_TABLE[opcode as usize].2 as usize == M6502::rel as usize {
-                value = bus.read(address as u16, false);
                 address += 1;
                 let string_rep = format!(
-                    "${} [${}] {{rel}}",
-                    to_hex(value as u32, 2),
-                    to_hex(address + value as u32, 4)
+                    "${} {{abs}}",
+                    helpers::to_hex(((high << 8) | low) as u32, 4)
                 );
+                instruction_address.push_str(&string_rep);
+            } else if LOOKUP_TABLE[opcode as usize].2 as usize == M6502::abx as usize {
+                // If the opcode's addressing mode is absolute with X offset, get the next two bytes,
+                // combine them, format them as a hex string with "{abx}", and add it to the instruction address.
+
+                low = bus.read(address as u16, false);
+                address += 1;
+                high = bus.read(address as u16, false);
+                address += 1;
+                let string_rep = format!(
+                    "${} {{abx}}",
+                    helpers::to_hex(((high << 8) | low) as u32, 4)
+                );
+                instruction_address.push_str(&string_rep);
+            } else if LOOKUP_TABLE[opcode as usize].2 as usize == M6502::aby as usize {
+                // If the opcode's addressing mode is absolute with Y offset, get the next two bytes,
+                // combine them, format them as a hex string with "{aby}", and add it to the instruction address.
+
+                low = bus.read(address as u16, false);
+                address += 1;
+                high = bus.read(address as u16, false);
+                address += 1;
+                let string_rep = format!(
+                    "${} {{aby}}",
+                    helpers::to_hex(((high << 8) | low) as u32, 4)
+                );
+                instruction_address.push_str(&string_rep);
+            } else if LOOKUP_TABLE[opcode as usize].2 as usize == M6502::ind as usize {
+                // If the opcode's addressing mode is indirect, get the next two bytes, combine them,
+                // format them as a hex string with "($...)", and add it to the instruction address.
+
+                low = bus.read(address as u16, false);
+                address += 1;
+                high = bus.read(address as u16, false);
+                address += 1;
+                let string_rep = format!(
+                    "(${}) {{ind}}",
+                    helpers::to_hex(((high << 8) | low) as u32, 4)
+                );
+                instruction_address.push_str(&string_rep);
+            } else if LOOKUP_TABLE[opcode as usize].2 as usize == M6502::rel as usize {
+                // Check if the opcode corresponds to relative addressing mode
+
+                // Read the byte value at the memory address and increment the program counter
+                value = bus.read(address as u16, false);
+                address += 1;
+
+                // Generate a string representation of the instruction address using the value
+                // read and the program counter
+                let string_rep = format!(
+                    "${} [${}] {{rel}}",
+                    helpers::to_hex(value as u32, 2),
+                    helpers::to_hex(address + value as u32, 4)
+                );
+
+                // Append the string representation to the existing instruction address string
                 instruction_address.push_str(&string_rep);
             }
             lined_maps.insert(line_address, instruction_address.clone());
         }
 
+        // resulting instructions with their corresponding line addres
         lined_maps
     }
 }
@@ -371,6 +642,42 @@ impl M6502Opcodes for M6502 {
         0x0u8
     }
 
+    /// Executes the BRK instruction of the [`M6502`] CPU.
+    ///
+    /// # Arguments
+    ///
+    /// * `cpu` - A mutable reference to the [`M6502`] CPU.
+    /// * `bus` - A mutable reference to the system [`Bus`].
+    ///
+    /// # Returns
+    ///
+    /// The value `0x0`.
+    ///
+    /// # Description
+    ///
+    /// The BRK instruction causes a software interrupt. It sets the interrupt flag to disable further
+    /// interrupts, pushes the program counter (plus one) and status register onto the stack, and loads
+    /// the program counter with the address stored at locations 0xFFFE and 0xFFFF. The BRK instruction
+    /// can be used for implementing subroutines and interrupt handlers.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use emulator_6502::{M6502, Bus};
+    ///
+    /// let mut cpu = M6502::new();
+    /// let mut bus = Bus::new();
+    /// cpu.pc = 0x200;
+    /// cpu.stkp = 0xFD;
+    /// cpu.status = 0x00;
+    /// bus.write(0xFFFE, 0xAB);
+    /// bus.write(0xFFFF, 0xCD);
+    /// let cycles = cpu.execute_instruction(&mut bus, 0x00);
+    /// assert_eq!(cycles, 7);
+    /// assert_eq!(cpu.pc, 0xCDAB);
+    /// assert_eq!(bus.read(0x01FD, false), 0x30);
+    /// ```
+    ///
     #[inline]
     fn brk(cpu: &mut M6502, bus: &mut Bus) -> u8 {
         cpu.pc += 1;
@@ -581,6 +888,25 @@ impl M6502Opcodes for M6502 {
         1u8
     }
 
+    /// Load Y Register with Memory
+    ///
+    /// Loads a byte of memory into the Y register, setting the zero and negative
+    /// flags as appropriate.
+    ///
+    /// Flags affected:
+    ///
+    /// - Zero flag: Set if Y is 0
+    /// - Negative flag: Set if bit 7 of the fetched value is set
+    ///
+    /// # Arguments
+    ///
+    /// * `cpu` - A mutable reference to the [`M6502`] CPU
+    /// * `bus` - A mutable reference to the system [`Bus`]
+    ///
+    /// # Returns
+    ///
+    /// This function returns the number of clock cycles used by the instruction.
+    ///
     #[inline]
     fn ldy(cpu: &mut M6502, bus: &mut Bus) -> u8 {
         cpu.y = cpu.fetch(bus);

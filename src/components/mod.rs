@@ -4,10 +4,9 @@ use self::types::M6502Instruction;
 use self::types::M6502Opcodes;
 
 pub mod bus;
-pub mod clock;
+pub mod dh2C02_ppu;
 pub mod dh6502_cpu;
 pub mod types;
-pub mod dh2C02_ppu;
 
 const BOTTOM_OF_RAM: u16 = 0x0000;
 const TOP_OF_RAM: u16 = 0xFFFF;

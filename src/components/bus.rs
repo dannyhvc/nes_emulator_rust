@@ -13,7 +13,7 @@ impl Bus {
     }
 
     #[inline]
-    pub fn read(&mut self, addr: u16, _b_read_only: bool) -> u8 {
+    pub fn read(&self, addr: u16, _b_read_only: bool) -> u8 {
         if addr >= BOTTOM_OF_RAM && addr <= TOP_OF_RAM {
             return self.ram[addr as usize];
         }

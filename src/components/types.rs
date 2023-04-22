@@ -1,9 +1,6 @@
 use super::{bus::Bus, dh6502_cpu::M6502};
 use custom_error::custom_error;
-use std::{
-    cell::RefCell,
-    rc::Weak,
-};
+use std::{cell::RefCell, rc::Weak};
 
 // TODO: add an actual error call hierarchy
 custom_error! {
@@ -45,22 +42,6 @@ pub enum M6502Flags {
 ///
 /// The `fn(&mut M6502, &mut Bus) -> u8` function pointers are expected to implement the
 /// opcode and addressing mode logic for the instruction, respectively.
-///
-/// # Examples
-///
-/// ```
-/// # use crate::components::M6502;
-/// # use crate::bus::Bus;
-/// # fn example() {
-/// let instruction = M6502Instruction(
-///     "LDA",
-///     M6502::lda,
-///     M6502::imm,
-///     2,
-/// );
-///
-/// assert_eq!(instruction.0, "LDA");
-/// ```
 pub struct M6502Instruction(
     pub &'static str,
     pub for<'a, 'b> fn(&'a mut M6502, &'b mut Bus) -> u8, // OPCODE

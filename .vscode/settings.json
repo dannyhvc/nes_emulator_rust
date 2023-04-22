@@ -18,5 +18,12 @@
         "titleBar.inactiveBackground": "#42424299",
         "titleBar.inactiveForeground": "#e7e7e799"
     },
-    "peacock.color": "#424242"
+    "peacock.color": "#424242",
+    "rust-analyzer.linkedProjects": [
+        ".\\Cargo.toml"
+    ],
+    "errorLens.statusBarIconsEnabled": true,
+    "errorLens.followCursor": "allLinesExceptActive",
+    "errorLens.gutterIconsEnabled": true,
+    "errorLens.statusBarColorsEnabled": false
 }
