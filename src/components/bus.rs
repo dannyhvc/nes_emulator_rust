@@ -1,21 +1,23 @@
-use super::{BOTTOM_OF_RAM, TOP_OF_RAM};
+use super::{dh6502_cpu::M6502, BOTTOM_OF_RAM, TOP_OF_RAM};
 
 #[derive(Debug, Clone)]
 pub struct Bus {
-    pub ram: [u8; 64 * 1024], // for now
+    pub cpu_ram: [u8; 2048], // for now
+    pub sys_clock_counter: u32,
 }
 impl Bus {
     /// Creates a new [`Bus`]. With 2Kb of MOS 6502 memory
     pub fn new() -> Self {
         Self {
-            ram: [0u8; 64 * 1024],
+            cpu_ram: [0u8; 2048],
+            sys_clock_counter: 0,
         }
     }
 
     #[inline]
     pub fn read(&self, addr: u16, _b_read_only: bool) -> u8 {
         if addr >= BOTTOM_OF_RAM && addr <= TOP_OF_RAM {
-            return self.ram[addr as usize];
+            return self.cpu_ram[addr as usize];
         }
         0x00
     }
@@ -23,7 +25,20 @@ impl Bus {
     #[inline]
     pub fn write(&mut self, addr: u16, data: u8) {
         if addr >= BOTTOM_OF_RAM && addr <= TOP_OF_RAM {
-            self.ram[addr as usize] = data;
+            self.cpu_ram[addr as usize] = data;
         }
+    }
+
+    #[inline]
+    pub fn clock(&mut self, cpu: &mut M6502) {
+        if self.sys_clock_counter % 3 == 0 {
+            M6502::reset(cpu, self);
+        }
+        self.sys_clock_counter += 1;
+    }
+
+    pub fn reset(&mut self, cpu: &mut M6502) {
+        M6502::reset(cpu, self);
+        self.sys_clock_counter = 0;
     }
 }
