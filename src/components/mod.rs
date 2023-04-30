@@ -4,16 +4,17 @@ use self::types::M6502Instruction;
 use self::types::M6502Opcodes;
 
 pub mod bus;
+pub mod cartridge;
 pub mod dh2C02_ppu;
 pub mod dh6502_cpu;
-pub mod types;
 pub mod mappers;
+pub mod types;
 
 const BOTTOM_OF_RAM: u16 = 0x0000;
 const TOP_OF_RAM: u16 = 0xFFFF;
 const HIGH_BYTE: u16 = 0xFF00;
 const LOW_BYTE: u16 = 0x00FF;
-const TOP_BIT_THRESH: u16 = 0x80;
+const TOP_BIT_THRESH: u16 = 0x0080;
 
 // 6502 lookup table
 // for logging but may be left alone for now

@@ -1,5 +1,6 @@
 use super::mapper::{self, MapperData};
 
+#[derive(Debug, Clone, Copy)]
 pub struct M000(MapperData);
 impl mapper::MapperFn for M000 {
     fn new(prg_bank: u8, chr_bank: u8) -> Self {

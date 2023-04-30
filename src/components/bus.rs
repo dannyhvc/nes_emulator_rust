@@ -2,8 +2,8 @@ use super::{dh6502_cpu::M6502, BOTTOM_OF_RAM, TOP_OF_RAM};
 
 #[derive(Debug, Clone)]
 pub struct Bus {
-    pub cpu_ram: [u8; 2048], // for now
-    pub sys_clock_counter: u32,
+    pub cpu_ram: [u8; 2048], // 2Kb of ram
+    pub sys_clock_counter: u32, // motherboards clock for busses
 }
 impl Bus {
     /// Creates a new [`Bus`]. With 2Kb of MOS 6502 memory
