@@ -4,7 +4,7 @@ use std::{cell::RefCell, rc::Weak};
 
 // TODO: add an actual error call hierarchy
 custom_error! {
-    CriticalCpuError
+    pub CriticalCpuError
     Bad      = "Something bad happened",
     Terrible = "This is a very serious error!!!"
 }

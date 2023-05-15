@@ -6,7 +6,7 @@ pub trait MapperFn {
     fn allow_ppu_write(&self, addr: u16, mapped_addr: &mut u32) -> bool;
 }
 
-// trivially copiable struct: mov QWORD
+// trivially copiable struct on most systems: mov QWORD
 #[derive(Debug, Clone, Copy)]
 pub struct MapperData {
     pub prg_bank: u8,

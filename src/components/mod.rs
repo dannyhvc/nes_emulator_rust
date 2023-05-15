@@ -16,6 +16,13 @@ const HIGH_BYTE: u16 = 0xFF00;
 const LOW_BYTE: u16 = 0x00FF;
 const TOP_BIT_THRESH: u16 = 0x0080;
 
+#[allow(non_snake_case)]
+#[inline(always)]
+pub const fn KB(n: u32) -> usize {
+    const SIZEOF_1KB: u32 = 1024;
+    return (n * SIZEOF_1KB) as usize;
+}
+
 // 6502 lookup table
 // for logging but may be left alone for now
 const LOOKUP_TABLE: [M6502Instruction; 256] = [

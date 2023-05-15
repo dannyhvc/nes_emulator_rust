@@ -464,6 +464,58 @@ impl M6502 {
 }
 
 impl M6502Opcodes for M6502 {
+    /// Perform an addition with carry of the value fetched from the memory pointed to by the program
+    /// counter to the accumulator register of the MOS 6502 CPU.
+    ///
+    /// # Arguments
+    ///
+    /// * `cpu` - A mutable reference to the [`M6502`] CPU.
+    /// * `bus` - A mutable reference to the [`Bus`] connected to the CPU.
+    ///
+    /// # Return value
+    ///
+    /// The number of clock cycles taken to execute this instruction, which is always 1.
+    ///
+    /// # Flags affected
+    ///
+    /// This instruction may affect the following flags: C, Z, V, N.
+    ///
+    /// # Details
+    ///
+    /// This instruction adds the fetched value and the carry flag to the accumulator in 16-bit domain,
+    /// setting the carry flag if the result exceeds 255. The result is then truncated to 8 bits and stored
+    /// in the accumulator. The zero flag is set if the result is zero, the negative flag is set if the most
+    /// significant bit of the result is 1, and the signed overflow flag is set based on a complex condition
+    /// involving the previous value of the accumulator, the fetched value, and the new value of the accumulator.
+    /// See the implementation for more details.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use M6502::{M6502, Bus};
+    ///
+    /// let mut cpu = M6502::new();
+    /// let mut bus = Bus::new();
+    ///
+    /// cpu.acc = 0x12;
+    /// bus.write(0x1234, 0x34);
+    /// cpu.pc = 0x1234;
+    ///
+    /// assert_eq!(cpu.get_flag(M6502::M6502Flags::C), false);
+    /// assert_eq!(cpu.get_flag(M6502::M6502Flags::Z), false);
+    /// assert_eq!(cpu.get_flag(M6502::M6502Flags::V), false);
+    /// assert_eq!(cpu.get_flag(M6502::M6502Flags::N), false);
+    ///
+    /// let cycles = M6502::instructions::adc(&mut cpu, &mut bus);
+    ///
+    /// assert_eq!(cycles, 1);
+    /// assert_eq!(cpu.acc, 0x46);
+    /// assert_eq!(cpu.pc, 0x1235);
+    /// assert_eq!(cpu.get_flag(M6502::M6502Flags::C), false);
+    /// assert_eq!(cpu.get_flag(M6502::M6502Flags::Z), false);
+    /// assert_eq!(cpu.get_flag(M6502::M6502Flags::V), false);
+    /// assert_eq!(cpu.get_flag(M6502::M6502Flags::N), false);
+    /// ```
     fn adc(cpu: &mut M6502, bus: &mut Bus) -> u8 {
         // Grab the data that we are adding to the accumulator
         // Add is performed in 16-bit domain for emulation to capture any
@@ -492,17 +544,51 @@ impl M6502Opcodes for M6502 {
         1u8
     }
 
-    /**
-    1) Fetch the data you are working with
-    2) Perform calculation
-    3) Store the result in desired place
-    4) Set Flags of the status register
-    5) Return if instruction has potential to require additional
-        clock cycle
-    ### Instruction: Bitwise Logic AND
-    - Function:    A = A & M
-    - Flags Out:   N, Z
-    */
+    /// Perform a bitwise AND operation between the accumulator register of the MOS 6502 CPU and the value
+    /// fetched from the memory pointed to by the program counter.
+    ///
+    /// # Arguments
+    ///
+    /// * `cpu` - A mutable reference to the [`M6502`] CPU.
+    /// * `bus` - A mutable reference to the [`Bus`] connected to the CPU.
+    ///
+    /// # Return value
+    ///
+    /// The number of clock cycles taken to execute this instruction, which is always 1.
+    ///
+    /// # Flags affected
+    ///
+    /// This instruction may affect the following flags: Z, N.
+    ///
+    /// # Details
+    ///
+    /// This instruction performs a bitwise AND operation between the accumulator and the fetched value, storing
+    /// the result in the accumulator. The zero flag is set if the result is zero, and the negative flag is set
+    /// if the most significant bit of the result is 1. See the implementation for more details.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use M6502::{M6502, Bus};
+    ///
+    /// let mut cpu = M6502::new();
+    /// let mut bus = Bus::new();
+    ///
+    /// cpu.acc = 0x12;
+    /// bus.write(0x1234, 0x34);
+    /// cpu.pc = 0x1234;
+    ///
+    /// assert_eq!(cpu.get_flag(M6502::M6502Flags::Z), false);
+    /// assert_eq!(cpu.get_flag(M6502::M6502Flags::N), false);
+    ///
+    /// let cycles = M6502::instructions::and(&mut cpu, &mut bus);
+    ///
+    /// assert_eq!(cycles, 1);
+    /// assert_eq!(cpu.acc, 0x12 & 0x34);
+    /// assert_eq!(cpu.pc, 0x1235);
+    /// assert_eq!(cpu.get_flag(M6502::M6502Flags::Z), false);
+    /// assert_eq!(cpu.get_flag(M6502::M6502Flags::N), true);
+    /// ```
     fn and(cpu: &mut M6502, bus: &mut Bus) -> u8 {
         cpu.acc &= cpu.fetch(bus);
         cpu.set_flag(M6502Flags::Z, cpu.acc == 0x00);
@@ -510,11 +596,68 @@ impl M6502Opcodes for M6502 {
         1u8
     }
 
-    /**
-    ### Instruction: Arithmetic Shift Left
-    - Function:    A = C <- (A << 1) <- 0
-    -Flags Out:   N, Z, C
-    */
+    /// Perform an arithmetic shift left operation on the value fetched from memory or the accumulator
+    /// register of the MOS 6502 CPU.
+    ///
+    /// # Arguments
+    ///
+    /// * `cpu` - A mutable reference to the [`M6502`] CPU.
+    /// * `bus` - A mutable reference to the [`Bus`]connected to the CPU.
+    ///
+    /// # Return value
+    ///
+    /// The number of clock cycles taken to execute this instruction, which is always 0.
+    ///
+    /// # Flags affected
+    ///
+    /// This instruction may affect the following flags: C, Z, N.
+    ///
+    /// # Details
+    ///
+    /// This instruction shifts the bits of the fetched value or the accumulator one position to the left,
+    /// storing the result in the temporary register of the CPU. The carry flag is set to the value of the
+    /// bit that was shifted out of the most significant bit position, the zero flag is set if the result
+    /// is zero, and the negative flag is set if the most significant bit of the result is 1. The shifted
+    /// result is stored back in the accumulator or memory, depending on the addressing mode used by the
+    /// instruction. See the implementation for more details.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use M6502::{M6502, Bus};
+    ///
+    /// let mut cpu = M6502::new();
+    /// let mut bus = Bus::new();
+    ///
+    /// bus.write(0x1234, 0b10010010);
+    /// cpu.pc = 0x1234;
+    ///
+    /// assert_eq!(cpu.get_flag(M6502::M6502Flags::C), false);
+    /// assert_eq!(cpu.get_flag(M6502::M6502Flags::Z), false);
+    /// assert_eq!(cpu.get_flag(M6502::M6502Flags::N), false);
+    ///
+    /// let cycles = M6502::instructions::asl(&mut cpu, &mut bus);
+    ///
+    /// assert_eq!(cycles, 0);
+    /// assert_eq!(bus.read(0x1234), 0b00100100);
+    /// assert_eq!(cpu.get_flag(M6502::M6502Flags::C), true);
+    /// assert_eq!(cpu.get_flag(M6502::M6502Flags::Z), false);
+    /// assert_eq!(cpu.get_flag(M6502::M6502Flags::N), false);
+    ///
+    /// cpu.acc = 0b10010010;
+    ///
+    /// assert_eq!(cpu.get_flag(M6502::M6502Flags::C), false);
+    /// assert_eq!(cpu.get_flag(M6502::M6502Flags::Z), false);
+    /// assert_eq!(cpu.get_flag(M6502::M6502Flags::N), false);
+    ///
+    /// let cycles = M6502::instructions::asl(&mut cpu, &mut bus);
+    ///
+    /// assert_eq!(cycles, 0);
+    /// assert_eq!(cpu.acc, 0b00100100);
+    /// assert_eq!(cpu.get_flag(M6502::M6502Flags::C), true);
+    /// assert_eq!(cpu.get_flag(M6502::M6502Flags::Z), false);
+    /// assert_eq!(cpu.get_flag(M6502::M6502Flags::N), false);
+    /// ```
     #[inline]
     fn asl(cpu: &mut M6502, bus: &mut Bus) -> u8 {
         cpu.temp = (cpu.fetch(bus) << 1).into();
@@ -529,10 +672,23 @@ impl M6502Opcodes for M6502 {
         0u8
     }
 
-    /**
-    ### Instruction: Branch if Carry Clear
-    - Function:    if(C == 0) pc = address
-    */
+    /// Branch on Carry Clear
+    ///
+    /// This function implements the "BCC" instruction, which checks if the carry flag is clear. If the carry flag is clear, then
+    /// add the relative displacement to the program counter to cause a branch to a new location. The 6502 supports relative
+    /// addressing mode, so the value read from memory is the two's complement of a signed byte that represents the relative
+    /// displacement to be added to the program counter. If the carry flag is set, then the program counter is incremented
+    /// without a branch. This instruction takes two cycles to complete, and an additional cycle if the branch occurs on the same
+    /// page. The function returns the number of cycles that the instruction has consumed.
+    ///
+    /// # Arguments
+    ///
+    /// * `cpu` - A mutable reference to the [`M6502`] CPU
+    /// * `_` - A mutable reference to the [`Bus`]. This argument is ignored by this function.
+    ///
+    /// # Returns
+    ///
+    /// The number of cycles that the instruction has consumed, which is always 0.
     #[inline]
     fn bcc(cpu: &mut M6502, _: &mut Bus) -> u8 {
         if cpu.get_flag(M6502Flags::C) == 0_u8 {
@@ -547,10 +703,60 @@ impl M6502Opcodes for M6502 {
         0_u8
     }
 
-    /**
-    ### Instruction: Branch if Carry Set
-    - Function:    if(C == 1) pc = address
-    */
+    /// Branch on carry set
+    ///
+    /// If the carry flag is set, then add the relative displacement to the program counter to
+    /// cause a branch to a new location.
+    ///
+    /// # Arguments
+    ///
+    /// * `cpu` - A mutable reference to the MOS 6502 CPU.
+    /// * `_` - A mutable reference to the bus connected to the MOS 6502 CPU. This argument is
+    /// ignored, as this instruction does not access memory.
+    ///
+    /// # Return value
+    ///
+    /// The number of clock cycles taken to execute this instruction, which is always 0x1.
+    ///
+    /// # Flags affected
+    ///
+    /// This instruction does not affect any flags.
+    ///
+    /// # Details
+    ///
+    /// This instruction adds the relative displacement provided by the instruction operand to the
+    /// program counter, causing a branch to a new location if the carry flag is set (i.e. if the
+    /// result of the previous arithmetic or bitwise operation resulted in a carry or overflow). If
+    /// the branch is taken, an additional cycle is taken if the branch crosses a page boundary. See
+    /// the implementation for more details.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use M6502::{M6502, Bus};
+    ///
+    /// let mut cpu = M6502::new();
+    ///
+    /// // BCS should branch because C flag is set (carry)
+    /// cpu.pc = 0x1234;
+    /// cpu.addr_rel = 0x10;
+    /// cpu.set_flag(M6502::M6502Flags::C, true);
+    ///
+    /// let cycles = M6502::instructions::bcs(&mut cpu, &mut Bus::new());
+    ///
+    /// assert_eq!(cycles, 1);
+    /// assert_eq!(cpu.pc, 0x1234 + 0x10);
+    ///
+    /// // BCS should not branch because C flag is clear (no carry)
+    /// cpu.pc = 0x1234;
+    /// cpu.addr_rel = 0x10;
+    /// cpu.set_flag(M6502::M6502Flags::C, false);
+    ///
+    /// let cycles = M6502::instructions::bcs(&mut cpu, &mut Bus::new());
+    ///
+    /// assert_eq!(cycles, 1);
+    /// assert_eq!(cpu.pc, 0x1234);
+    /// ```
     #[inline]
     fn bcs(cpu: &mut M6502, _: &mut Bus) -> u8 {
         if cpu.get_flag(M6502Flags::C) == 1_u8 {
@@ -565,10 +771,60 @@ impl M6502Opcodes for M6502 {
         1u8
     }
 
-    /**
-    ### Instruction: Branch if Equal
-    - Function:    if(Z == 1) pc = address
-    */
+    /// Branch on equal (zero set)
+    ///
+    /// If the zero flag is set, then add the relative displacement to the program counter to
+    /// cause a branch to a new location.
+    ///
+    /// # Arguments
+    ///
+    /// * `cpu` - A mutable reference to the MOS 6502 CPU.
+    /// * `_` - A mutable reference to the bus connected to the MOS 6502 CPU. This argument is
+    /// ignored, as this instruction does not access memory.
+    ///
+    /// # Return value
+    ///
+    /// The number of clock cycles taken to execute this instruction, which is always 0x0.
+    ///
+    /// # Flags affected
+    ///
+    /// This instruction does not affect any flags.
+    ///
+    /// # Details
+    ///
+    /// This instruction adds the relative displacement provided by the instruction operand to the
+    /// program counter, causing a branch to a new location if the zero flag is set (i.e. if the
+    /// result of the previous arithmetic or bitwise operation was zero). If the branch is taken, an
+    /// additional cycle is taken if the branch crosses a page boundary. See the implementation for
+    /// more details.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use M6502::{M6502, Bus};
+    ///
+    /// let mut cpu = M6502::new();
+    ///
+    /// // BEQ should branch because Z flag is set (zero)
+    /// cpu.pc = 0x1234;
+    /// cpu.addr_rel = 0x10;
+    /// cpu.set_flag(M6502::M6502Flags::Z, true);
+    ///
+    /// let cycles = M6502::instructions::beq(&mut cpu, &mut Bus::new());
+    ///
+    /// assert_eq!(cycles, 0);
+    /// assert_eq!(cpu.pc, 0x1234 + 0x10);
+    ///
+    /// // BEQ should not branch because Z flag is clear (not zero)
+    /// cpu.pc = 0x1234;
+    /// cpu.addr_rel = 0x10;
+    /// cpu.set_flag(M6502::M6502Flags::Z, false);
+    ///
+    /// let cycles = M6502::instructions::beq(&mut cpu, &mut Bus::new());
+    ///
+    /// assert_eq!(cycles, 0);
+    /// assert_eq!(cpu.pc, 0x1234);
+    /// ```
     #[inline]
     fn beq(cpu: &mut M6502, _: &mut Bus) -> u8 {
         if cpu.get_flag(M6502Flags::Z) == 1_u8 {
@@ -583,6 +839,62 @@ impl M6502Opcodes for M6502 {
         0_u8
     }
 
+    /// Bit test
+    ///
+    /// This instruction performs a bitwise logical AND between the accumulator and the value fetched
+    /// from memory. The Z flag is set based on the result of the AND operation (i.e. if the result is
+    /// zero), the N flag is set to the value of the most significant bit of the fetched value, and
+    /// the V flag is set to the value of the second most significant bit of the fetched value. The
+    /// result of the bitwise AND operation is not stored anywhere.
+    ///
+    /// # Arguments
+    ///
+    /// * `cpu` - A mutable reference to the MOS 6502 CPU.
+    /// * `bus` - A mutable reference to the bus connected to the MOS 6502 CPU.
+    ///
+    /// # Return value
+    ///
+    /// The number of clock cycles taken to execute this instruction, which is always 0x0.
+    ///
+    /// # Flags affected
+    ///
+    /// This instruction affects the following flags: Z, N, V.
+    ///
+    /// # Details
+    ///
+    /// This instruction performs a bitwise AND operation between the value in the accumulator and
+    /// the value fetched from memory. The result of the AND operation is stored temporarily in the
+    /// CPU's `temp` register as a 16-bit value. The Z flag is set if the result of the AND operation
+    /// is zero (i.e. all bits are cleared), otherwise it is cleared. The N flag is set to the value
+    /// of the most significant bit of the fetched value, and the V flag is set to the value of the
+    /// second most significant bit of the fetched value. The result of the AND operation is not
+    /// stored anywhere.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use M6502::{M6502, Bus};
+    ///
+    /// let mut cpu = M6502::new();
+    /// let mut bus = Bus::new();
+    ///
+    /// // Acc = 0b01010101
+    /// // Memory = 0b11110000
+    ///
+    /// cpu.acc = 0b01010101;
+    /// bus.write(0x1234, 0b11110000);
+    ///
+    /// assert_eq!(cpu.get_flag(M6502::M6502Flags::Z), false);
+    /// assert_eq!(cpu.get_flag(M6502::M6502Flags::N), false);
+    /// assert_eq!(cpu.get_flag(M6502::M6502Flags::V), false);
+    ///
+    /// let cycles = M6502::instructions::bit(&mut cpu, &mut bus);
+    ///
+    /// assert_eq!(cycles, 0);
+    /// assert_eq!(cpu.get_flag(M6502::M6502Flags::Z), true);
+    /// assert_eq!(cpu.get_flag(M6502::M6502Flags::N), true);
+    /// assert_eq!(cpu.get_flag(M6502::M6502Flags::V), true);
+    /// ```
     #[inline]
     fn bit(cpu: &mut M6502, bus: &mut Bus) -> u8 {
         cpu.temp = (cpu.acc & cpu.fetch(bus)) as u16;
@@ -592,10 +904,54 @@ impl M6502Opcodes for M6502 {
         0_u8
     }
 
-    /**
-    ### Instruction: Branch if Negative
-    Function:    if(N == 1) pc = address
-    */
+    /// Branch on result minus
+    ///
+    /// This instruction performs a branch operation if the negative flag (N) is set to 1. The branch
+    /// operation can jump to a new address within a certain range relative to the current program
+    /// counter (PC). If the N flag is set to 1, the program counter is updated to the new address, and
+    /// additional clock cycles may be consumed depending on whether the branch crosses a page boundary
+    /// or not.
+    ///
+    /// # Arguments
+    ///
+    /// * `cpu` - A mutable reference to the MOS 6502 CPU.
+    /// * `_` - A mutable reference to the bus connected to the MOS 6502 CPU (unused in this function).
+    ///
+    /// # Return value
+    ///
+    /// The number of clock cycles taken to execute this instruction, which is always 0x0.
+    ///
+    /// # Flags affected
+    ///
+    /// None of the flags are explicitly affected by this instruction.
+    ///
+    /// # Details
+    ///
+    /// This instruction checks the value of the negative flag (N) and performs a branch if it is set
+    /// to 1. The branch is performed by calculating the absolute address of the target location by
+    /// adding the relative address (`addr_rel`) to the program counter (`pc`). If the branch crosses
+    /// a page boundary, an additional clock cycle is consumed. Finally, the program counter (`pc`) is
+    /// updated with the new address.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use M6502::{M6502, Bus};
+    ///
+    /// let mut cpu = M6502::new();
+    /// let mut bus = Bus::new();
+    ///
+    /// cpu.set_flag(M6502::M6502Flags::N, true);
+    /// cpu.pc = 0x1234;
+    /// cpu.addr_rel = 0x10;
+    ///
+    /// assert_eq!(cpu.pc, 0x1234);
+    ///
+    /// let cycles = M6502::instructions::bmi(&mut cpu, &mut bus);
+    ///
+    /// assert_eq!(cycles, 0);
+    /// assert_eq!(cpu.pc, 0x1244); // Branch taken, new address is pc + addr_rel
+    /// ```
     #[inline]
     fn bmi(cpu: &mut M6502, _: &mut Bus) -> u8 {
         if cpu.get_flag(M6502Flags::N) == 1_u8 {
@@ -610,10 +966,53 @@ impl M6502Opcodes for M6502 {
         0_u8
     }
 
-    /**
-    ### Instruction: Branch if Not Equal
-    - Function:    if(Z == 0) pc = address
-    */
+    /// Branch on result not equal
+    ///
+    /// This instruction performs a branch operation if the zero flag (Z) is set to 0. The branch
+    /// operation can jump to a new address within a certain range relative to the current program
+    /// counter (PC). If the Z flag is set to 0, the program counter is updated to the new address, and
+    /// additional clock cycles may be consumed depending on whether the branch crosses a page boundary
+    /// or not.
+    ///
+    /// # Arguments
+    ///
+    /// * `cpu` - A mutable reference to the MOS 6502 CPU.
+    /// * `_` - A mutable reference to the bus connected to the MOS 6502 CPU (unused in this function).
+    ///
+    /// # Return value
+    ///
+    /// The number of clock cycles taken to execute this instruction, which is always 0x0.
+    ///
+    /// # Flags affected
+    ///
+    /// None of the flags are explicitly affected by this instruction.
+    ///
+    /// # Details
+    ///
+    /// This instruction checks the value of the zero flag (Z) and performs a branch if it is set to 0.
+    /// The branch is performed by calculating the absolute address of the target location by adding the
+    /// relative address (`addr_rel`) to the program counter (`pc`). If the branch crosses a page boundary,
+    /// an additional clock cycle is consumed. Finally, the program counter (`pc`) is updated with the new address.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use M6502::{M6502, Bus};
+    ///
+    /// let mut cpu = M6502::new();
+    /// let mut bus = Bus::new();
+    ///
+    /// cpu.set_flag(M6502::M6502Flags::Z, false);
+    /// cpu.pc = 0x1234;
+    /// cpu.addr_rel = 0x10;
+    ///
+    /// assert_eq!(cpu.pc, 0x1234);
+    ///
+    /// let cycles = M6502::instructions::bne(&mut cpu, &mut bus);
+    ///
+    /// assert_eq!(cycles, 0);
+    /// assert_eq!(cpu.pc, 0x1244); // Branch taken, new address is pc + addr_rel
+    /// ```
     #[inline]
     fn bne(cpu: &mut M6502, _: &mut Bus) -> u8 {
         if cpu.get_flag(M6502Flags::Z) == 0_u8 {
@@ -628,6 +1027,60 @@ impl M6502Opcodes for M6502 {
         0_u8
     }
 
+    /// Branch on result plus
+    ///
+    /// If the negative flag is clear, then add the relative displacement to the program counter to
+    /// cause a branch to a new location.
+    ///
+    /// # Arguments
+    ///
+    /// * `cpu` - A mutable reference to the M6502 CPU.
+    /// * `_` - A unused mutable reference to the bus connected to the M6502 CPU. This argument is
+    ///         ignored, as this instruction does not access memory.
+    ///
+    /// # Return value
+    ///
+    /// The number of clock cycles taken to execute this instruction, which is always 0x0.
+    ///
+    /// # Flags affected
+    ///
+    /// This instruction does not affect any flags.
+    ///
+    /// # Details
+    ///
+    /// This instruction adds the relative displacement provided by the instruction operand to the
+    /// program counter, causing a branch to a new location if the negative flag is clear (i.e. if
+    /// the result of the previous arithmetic or bitwise operation was positive or zero). If the
+    /// branch is taken, an additional cycle is taken if the branch crosses a page boundary. See the
+    /// implementation for more details.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use M6502::{M6502, Bus};
+    ///
+    /// let mut cpu = M6502::new();
+    ///
+    /// // BPL should not branch because N flag is clear (positive)
+    /// cpu.pc = 0x1234;
+    /// cpu.addr_rel = 0x10;
+    /// cpu.set_flag(M6502::M6502Flags::N, false);
+    ///
+    /// let cycles = M6502::instructions::bpl(&mut cpu, &mut Bus::new());
+    ///
+    /// assert_eq!(cycles, 0);
+    /// assert_eq!(cpu.pc, 0x1234 + 0x10);
+    ///
+    /// // BPL should branch because N flag is set (negative)
+    /// cpu.pc = 0x1234;
+    /// cpu.addr_rel = 0x10;
+    /// cpu.set_flag(M6502::M6502Flags::N, true);
+    ///
+    /// let cycles = M6502::instructions::bpl(&mut cpu, &mut Bus::new());
+    ///
+    /// assert_eq!(cycles, 0);
+    /// assert_eq!(cpu.pc, 0x1234);
+    /// ```
     #[inline]
     fn bpl(cpu: &mut M6502, _: &mut Bus) -> u8 {
         if cpu.get_flag(M6502Flags::N) == 0 {
