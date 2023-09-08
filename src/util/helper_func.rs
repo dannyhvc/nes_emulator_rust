@@ -1,7 +1,6 @@
-use std::iter;
-
 #[inline]
 pub fn to_hex(n: u32, d: u8) -> String {
+    use std::iter;
     let mut s: Vec<char> = iter::repeat('0').take(d.into()).collect::<Vec<char>>();
     let mut num: u32 = n;
     let hex_alpha: Vec<char> = "0123456789ABCDEF".chars().collect::<Vec<char>>();
