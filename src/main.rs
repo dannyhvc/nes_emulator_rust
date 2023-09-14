@@ -56,11 +56,7 @@ mod tests {
         cpu.cycles = 0;
 
         for i in 0..0x00ff {
-            if i % 2 == 0 {
-                bus.write(i, 0xa9);
-            } else {
-                bus.write(i, 0xa9);
-            }
+            bus.write(i, 0xa9); // 169 LDA
         }
 
         let dis = M6502::disassemble(&mut bus, 0x0000, 0x00ff);

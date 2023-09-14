@@ -336,9 +336,9 @@ impl M6502 {
     pub fn disassemble(bus: &mut Bus, start: u16, stop: u16) -> HashMap<u16, String> {
         // Initialize variables for tracking the current address, instruction value, and line address.
         let mut address: u32 = start.into();
-        let mut value: u8;
+        let mut _value: u8;
         let mut low: u8 = 0;
-        let mut high: u8;
+        let mut _high: u8;
         let mut line_address: u16;
 
         // Create a HashMap to store the resulting instructions with their corresponding line address.
@@ -361,126 +361,126 @@ impl M6502 {
 
             // matching the addressing mode
             match instruction.mneumonic.am_name {
+                // Implied addressing mode (no operand)
                 AddrModeMneumonic::IMP => {
-                    // Implied addressing mode (no operand)
                     instruction_address.push_str(" {IMP}");
                 }
-                AddrModeMneumonic::IMM => {
-                    // Immediate addressing mode (8-bit immediate value)
 
-                    value = bus.read(address as u16, true);
+                // Immediate addressing mode (8-bit immediate value)
+                AddrModeMneumonic::IMM => {
+                    _value = bus.read(address as u16, true);
                     address += 1;
-                    high = 0x00;
+                    _high = 0x00;
                     // let string_rep = format!("#${} {{imm}}", helpers::to_hex(low as u32, 2));
                     let string_rep: String = format!("#${:x} {{imm}}", low);
                     instruction_address.push_str(&string_rep);
                 }
-                AddrModeMneumonic::ZP0 => {
-                    // Zero Page addressing mode (8-bit memory location address)
 
+                // Zero Page addressing mode (8-bit memory location address)
+                AddrModeMneumonic::ZP0 => {
                     low = bus.read(address as u16, true);
                     address += 1;
-                    high = 0x00;
+                    _high = 0x00;
                     let string_rep: String = format!("${:x} {{zp0}}", low);
                     instruction_address.push_str(&string_rep);
                 }
-                AddrModeMneumonic::ZPX => {
-                    // Zero Page X addressing mode (8-bit memory location address + X register)
 
+                // Zero Page X addressing mode (8-bit memory location address + X register)
+                AddrModeMneumonic::ZPX => {
                     low = bus.read(address as u16, true);
                     address += 1;
-                    high = 0x00;
+                    _high = 0x00;
                     let string_rep: String = format!("${:x}, X {{zpx}}", low);
                     instruction_address.push_str(&string_rep);
                 }
-                AddrModeMneumonic::ZPY => {
-                    // Zero Page Y addressing mode (8-bit memory location address + X register)
 
+                // Zero Page Y addressing mode (8-bit memory location address + X register)
+                AddrModeMneumonic::ZPY => {
                     low = bus.read(address as u16, true);
                     address += 1;
-                    high = 0x00;
+                    _high = 0x00;
                     let string_rep: String = format!("${:x}, Y {{zpy}}", low);
                     instruction_address.push_str(&string_rep);
                 }
-                AddrModeMneumonic::IZX => {
-                    // If the opcode's addressing mode is indexed indirect with X offset, get the next
-                    // byte, format it as a hex string with "($...,X)" and add it to the instruction address.
 
+                // If the opcode's addressing mode is indexed indirect with X offset, get the next
+                // byte, format it as a hex string with "($...,X)" and add it to the instruction address.
+                AddrModeMneumonic::IZX => {
                     low = bus.read(address as u16, true);
                     address += 1;
-                    high = 0x00;
+                    _high = 0x00;
                     let string_rep: String = format!("(${:x}, X) {{izx}}", low);
                     instruction_address.push_str(&string_rep);
                 }
-                AddrModeMneumonic::IZY => {
-                    // If the opcode's addressing mode is indirect indexed with Y offset, get the next
-                    // byte, format it as a hex string with "($...),Y" and add it to the instruction address.
 
+                // If the opcode's addressing mode is indirect indexed with Y offset, get the next
+                // byte, format it as a hex string with "($...),Y" and add it to the instruction address.
+                AddrModeMneumonic::IZY => {
                     low = bus.read(address as u16, true);
                     address += 1;
-                    high = 0x00;
+                    _high = 0x00;
                     let string_rep: String = format!("(${:x}), Y {{izy}}", low);
                     instruction_address.push_str(&string_rep);
                 }
+
+                // If the opcode's addressing mode is absolute, get the next two bytes, combine them,
+                // format them as a hex string with "{abs}", and add it to the instruction address.
                 AddrModeMneumonic::ABS => {
-                    // If the opcode's addressing mode is absolute, get the next two bytes, combine them,
-                    // format them as a hex string with "{abs}", and add it to the instruction address.
-
                     low = bus.read(address as u16, false);
                     address += 1;
-                    high = bus.read(address as u16, false);
+                    _high = bus.read(address as u16, false);
                     address += 1;
                     let string_rep: String =
-                        format!("${:x} {{abs}}", (((high as u32) << 8) | low as u32));
+                        format!("${:x} {{abs}}", (((_high as u32) << 8) | low as u32));
                     instruction_address.push_str(&string_rep);
                 }
+
+                // If the opcode's addressing mode is absolute with X offset, get the next two bytes,
+                // combine them, format them as a hex string with "{abx}", and add it to the instruction address.
                 AddrModeMneumonic::ABX => {
-                    // If the opcode's addressing mode is absolute with X offset, get the next two bytes,
-                    // combine them, format them as a hex string with "{abx}", and add it to the instruction address.
-
                     low = bus.read(address as u16, false);
                     address += 1;
-                    high = bus.read(address as u16, false);
+                    _high = bus.read(address as u16, false);
                     address += 1;
                     let string_rep: String =
-                        format!("${:x} {{abx}}", (((high as u32) << 8) | low as u32));
+                        format!("${:x} {{abx}}", (((_high as u32) << 8) | low as u32));
                     instruction_address.push_str(&string_rep);
                 }
+
+                // If the opcode's addressing mode is absolute with Y offset, get the next two bytes,
+                // combine them, format them as a hex string with "{aby}", and add it to the instruction address.
                 AddrModeMneumonic::ABY => {
-                    // If the opcode's addressing mode is absolute with Y offset, get the next two bytes,
-                    // combine them, format them as a hex string with "{aby}", and add it to the instruction address.
-
                     low = bus.read(address as u16, false);
                     address += 1;
-                    high = bus.read(address as u16, false);
+                    _high = bus.read(address as u16, false);
                     address += 1;
                     let string_rep: String =
-                        format!("${:x} {{aby}}", (((high as u32) << 8) | low as u32));
+                        format!("${:x} {{aby}}", (((_high as u32) << 8) | low as u32));
                     instruction_address.push_str(&string_rep);
                 }
+
+                // If the opcode's addressing mode is indirect, get the next two bytes, combine them,
+                // format them as a hex string with "($...)", and add it to the instruction address.
                 AddrModeMneumonic::IND => {
-                    // If the opcode's addressing mode is indirect, get the next two bytes, combine them,
-                    // format them as a hex string with "($...)", and add it to the instruction address.
-
                     low = bus.read(address as u16, false);
                     address += 1;
-                    high = bus.read(address as u16, false);
+                    _high = bus.read(address as u16, false);
                     address += 1;
                     let string_rep: String =
-                        format!("(${:x}) {{ind}}", (((high as u32) << 8) | low as u32));
+                        format!("(${:x}) {{ind}}", (((_high as u32) << 8) | low as u32));
                     instruction_address.push_str(&string_rep);
                 }
-                AddrModeMneumonic::REL => {
-                    // Check if the opcode corresponds to relative addressing mode
 
-                    // Read the byte value at the memory address and increment the program counter
-                    value = bus.read(address as u16, false);
+                // Check if the opcode corresponds to relative addressing mode
+                // Read the byte value at the memory address and increment the program counter
+                AddrModeMneumonic::REL => {
+                    _value = bus.read(address as u16, false);
                     address += 1;
 
                     // Generate a string representation of the instruction address using the value
                     // read and the program counter
                     let string_rep: String =
-                        format!("${:x} [${:x}] {{rel}}", value, address + value as u32);
+                        format!("${:x} [${:x}] {{rel}}", _value, address + _value as u32);
 
                     // Append the string representation to the existing instruction address string
                     instruction_address.push_str(&string_rep);
