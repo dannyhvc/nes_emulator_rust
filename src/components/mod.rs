@@ -2,7 +2,7 @@ use once_cell::sync::Lazy;
 
 use self::dh6502_cpu::M6502;
 use self::types::AddrModeMneumonic;
-use self::types::CpuInstruction as CINS;
+use self::types::CpuInstruction;
 use self::types::M6502AddrModes;
 use self::types::M6502Opcodes;
 use self::types::OpcodeMneumonic;
@@ -10,15 +10,15 @@ use crate::components::types::InstructionMneumonic;
 
 pub mod bus;
 pub mod cartridge;
-pub mod dh2C02_ppu;
+// pub mod dh2C02_ppu;
 pub mod dh6502_cpu;
 pub mod mappers;
 pub mod types;
 
-const BOTTOM_OF_RAM: u16 = 0x0000;
-const TOP_OF_RAM: u16 = 0xFFFF;
-const HIGH_BYTE: u16 = 0xFF00;
+const START_OF_RAM: u16 = 0x0000;
+const END_OF_RAM: u16 = 0xFFFF;
 const LOW_BYTE: u16 = 0x00FF;
+const HIGH_BYTE: u16 = 0xFF00;
 const TOP_BIT_THRESH: u16 = 0x0080;
 
 #[allow(non_snake_case)]
@@ -40,18 +40,19 @@ macro_rules! imneumonic {
 
 macro_rules! cins {
     ($op_code_ident:ident $am_name:ident $cycles:literal) => {
-        CINS {
+        CpuInstruction {
             mneumonic: imneumonic!($op_code_ident, $am_name),
-            op: M6502::$op_code_ident,
-            am: M6502::$am_name,
+            op_code: M6502::$op_code_ident,
+            addr_mode: M6502::$am_name,
             cycles: $cycles,
         }
     };
 }
 
 // mos 6502 lookup table
-static LOOKUP_TABLE: Lazy<[CINS; 256]> = Lazy::new(|| {
+static LOOKUP_TABLE: Lazy<[CpuInstruction; 256]> = Lazy::new(|| {
     [
+        //    OP  AD  C
         cins!(BRK IMM 7), // CINS{mneumonic: imneumonic!(BRK,IMM), op: M6502::BRK, am: M6502::IMM, cycles: 7},
         cins!(ORA IZX 6),
         cins!(XXX IMP 2), // illegal opcode

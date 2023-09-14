@@ -1,12 +1,32 @@
 #![allow(non_snake_case)]
 use std::collections::HashMap;
+use std::num::IntErrorKind;
 
+use crate::components::types::CpuInstruction;
 use crate::util::helper_func as helpers;
 
 use super::bus::Bus;
-use super::types::{CpuFlags, M6502AddrModes, M6502Opcodes};
+use super::types::{AddrModeMneumonic, CpuFlags, M6502AddrModes, M6502Opcodes};
 use super::{HIGH_BYTE, LOOKUP_TABLE, LOW_BYTE, TOP_BIT_THRESH};
 
+/// # Mos 6502AD
+/// ## Fields
+/// cpu Core registers, exposed as public here for ease of access from external examinors
+/// * `a` - Accumulator Register
+/// * `x` - X Register
+/// * `y` - Y Register
+/// * `sp` - Stack Pointer (points to location on cpu.bus)
+/// * `pc` - Program Counter
+/// * `status` - Status Register
+///
+/// ## Assisstive variables to facilitate emulation
+/// * `fetched` - Represents the working input value to the ALU
+/// * `temp` - A convenience variable used everywhere
+/// * `abs` - All used memory addresses end up in here
+/// * `rel` - Represents absolute address following a branch
+/// * `opcode` - Is the instruction byte
+/// * `cycles` - Counts how many cycles the instruction has remaining
+/// * `clock_count` - A global accumulation of the number of clocks
 #[derive(Debug, Clone)]
 pub struct M6502 {
     // cpu Core registers, exposed as public here for ease of access from external
@@ -29,7 +49,6 @@ pub struct M6502 {
 }
 
 impl M6502 {
-
     #[inline]
     pub const fn new() -> Self {
         Self {
@@ -88,11 +107,14 @@ impl M6502 {
     /// assert_eq!(fetched_value, 0xAB);
     /// assert_eq!(cpu.fetched, 0xAB);
     /// ```
-    ///
     #[inline]
     pub fn fetch(&mut self, bus: &Bus) -> u8 {
-        if !(LOOKUP_TABLE[self.opcode as usize].am as usize == M6502::IMP as usize) {
-            self.fetched = bus.read(self.abs, false);
+        let instruction: &CpuInstruction = &LOOKUP_TABLE[self.opcode as usize];
+        match instruction.mneumonic.am_name == AddrModeMneumonic::IMP {
+            true => (),
+            false => {
+                self.fetched = bus.read(self.abs, false);
+            }
         }
         self.fetched
     }
@@ -212,10 +234,13 @@ impl M6502 {
             cpu.opcode = bus.read(cpu.pc, true);
             cpu.set_flag(CpuFlags::U, true);
             cpu.pc += 1;
-            cpu.cycles = LOOKUP_TABLE[cpu.opcode as usize].cycles;
 
-            let added_cycle1: u8 = (LOOKUP_TABLE[cpu.opcode as usize].op)(cpu, bus);
-            let added_cycle2: u8 = (LOOKUP_TABLE[cpu.opcode as usize].am)(cpu, bus);
+            let instruction: &CpuInstruction = &LOOKUP_TABLE[cpu.opcode as usize];
+            dbg!(instruction);
+            cpu.cycles = instruction.cycles;
+
+            let added_cycle1: u8 = (instruction.op_code)(cpu, bus);
+            let added_cycle2: u8 = (instruction.addr_mode)(cpu, bus);
 
             cpu.cycles += added_cycle1 & added_cycle2;
             cpu.set_flag(CpuFlags::U, true);
@@ -257,7 +282,7 @@ impl M6502 {
     ///
     #[inline(always)]
     pub const fn get_flag(&self, f: CpuFlags) -> u8 {
-        return if self.status & f as u8 > 0 { 1u8 } else { 0u8 };
+        (self.status & f as u8 > 0) as u8
     }
 
     /// Returns a boolean indicating whether the current operation is complete or not.
@@ -311,10 +336,10 @@ impl M6502 {
     pub fn disassemble(bus: &mut Bus, start: u16, stop: u16) -> HashMap<u16, String> {
         // Initialize variables for tracking the current address, instruction value, and line address.
         let mut address: u32 = start.into();
-        let mut value: u8 = 0x00;
-        let mut low: u8 = 0x00;
-        let mut high: u8 = 0x00;
-        let mut line_address: u16 = 0;
+        let mut value: u8;
+        let mut low: u8 = 0;
+        let mut high: u8;
+        let mut line_address: u16;
 
         // Create a HashMap to store the resulting instructions with their corresponding line address.
         let mut lined_maps: HashMap<u16, String> = HashMap::<u16, String>::new();
@@ -324,139 +349,142 @@ impl M6502 {
             line_address = address as u16;
 
             // Initialize a string to hold the address and instruction for the current line.
-            let mut instruction_address: String =
-                format!("${}{}", helpers::to_hex(address, 4), ": ");
+            let mut instruction_address: String = format!("${:x}{}", address, ": ");
 
             // Read the opcode from memory at the current address.
             let opcode: u8 = bus.read(address as u16, true);
+            // retrieve the instruction from the opcode lookup
+            let instruction: &CpuInstruction = &LOOKUP_TABLE[opcode as usize];
 
             address += 1;
-            instruction_address
-                .push_str(format!("{} ", LOOKUP_TABLE[opcode as usize].mneumonic.name).as_str());
+            instruction_address.push_str(format!("{} ", instruction.mneumonic.name).as_str());
 
-            if LOOKUP_TABLE[opcode as usize].am as usize == M6502::IMP as usize {
-                // Implied addressing mode (no operand)
+            // matching the addressing mode
+            match instruction.mneumonic.am_name {
+                AddrModeMneumonic::IMP => {
+                    // Implied addressing mode (no operand)
+                    instruction_address.push_str(" {IMP}");
+                }
+                AddrModeMneumonic::IMM => {
+                    // Immediate addressing mode (8-bit immediate value)
 
-                instruction_address.push_str(" {IMP}");
-            } else if LOOKUP_TABLE[opcode as usize].am as usize == M6502::IMM as usize {
-                // Immediate addressing mode (8-bit immediate value)
+                    value = bus.read(address as u16, true);
+                    address += 1;
+                    high = 0x00;
+                    // let string_rep = format!("#${} {{imm}}", helpers::to_hex(low as u32, 2));
+                    let string_rep: String = format!("#${:x} {{imm}}", low);
+                    instruction_address.push_str(&string_rep);
+                }
+                AddrModeMneumonic::ZP0 => {
+                    // Zero Page addressing mode (8-bit memory location address)
 
-                value = bus.read(address as u16, true);
-                address += 1;
-                high = 0x00;
-                let string_rep = format!("#${} {{imm}}", helpers::to_hex(low as u32, 2));
-                instruction_address.push_str(&string_rep);
-            } else if LOOKUP_TABLE[opcode as usize].am as usize == M6502::ZP0 as usize {
-                // Zero Page addressing mode (8-bit memory location address)
+                    low = bus.read(address as u16, true);
+                    address += 1;
+                    high = 0x00;
+                    let string_rep: String = format!("${:x} {{zp0}}", low);
+                    instruction_address.push_str(&string_rep);
+                }
+                AddrModeMneumonic::ZPX => {
+                    // Zero Page X addressing mode (8-bit memory location address + X register)
 
-                low = bus.read(address as u16, true);
-                address += 1;
-                high = 0x00;
-                let string_rep = format!("${} {{zp0}}", helpers::to_hex(low as u32, 2));
-                instruction_address.push_str(&string_rep);
-            } else if LOOKUP_TABLE[opcode as usize].am as usize == M6502::ZPX as usize {
-                // Zero Page X addressing mode (8-bit memory location address + X register)
+                    low = bus.read(address as u16, true);
+                    address += 1;
+                    high = 0x00;
+                    let string_rep: String = format!("${:x}, X {{zpx}}", low);
+                    instruction_address.push_str(&string_rep);
+                }
+                AddrModeMneumonic::ZPY => {
+                    // Zero Page Y addressing mode (8-bit memory location address + X register)
 
-                low = bus.read(address as u16, true);
-                address += 1;
-                high = 0x00;
-                let string_rep = format!("${}, X {{zpx}}", helpers::to_hex(low as u32, 2));
-                instruction_address.push_str(&string_rep);
-            } else if LOOKUP_TABLE[opcode as usize].am as usize == M6502::ZPY as usize {
-                // Zero Page Y addressing mode (8-bit memory location address + X register)
+                    low = bus.read(address as u16, true);
+                    address += 1;
+                    high = 0x00;
+                    let string_rep: String = format!("${:x}, Y {{zpy}}", low);
+                    instruction_address.push_str(&string_rep);
+                }
+                AddrModeMneumonic::IZX => {
+                    // If the opcode's addressing mode is indexed indirect with X offset, get the next
+                    // byte, format it as a hex string with "($...,X)" and add it to the instruction address.
 
-                low = bus.read(address as u16, true);
-                address += 1;
-                high = 0x00;
-                let string_rep = format!("${}, Y {{zpy}}", helpers::to_hex(low as u32, 2));
-                instruction_address.push_str(&string_rep);
-            } else if LOOKUP_TABLE[opcode as usize].am as usize == M6502::IZX as usize {
-                // If the opcode's addressing mode is indexed indirect with X offset, get the next
-                // byte, format it as a hex string with "($...,X)" and add it to the instruction address.
+                    low = bus.read(address as u16, true);
+                    address += 1;
+                    high = 0x00;
+                    let string_rep: String = format!("(${:x}, X) {{izx}}", low);
+                    instruction_address.push_str(&string_rep);
+                }
+                AddrModeMneumonic::IZY => {
+                    // If the opcode's addressing mode is indirect indexed with Y offset, get the next
+                    // byte, format it as a hex string with "($...),Y" and add it to the instruction address.
 
-                low = bus.read(address as u16, true);
-                address += 1;
-                high = 0x00;
-                let string_rep = format!("(${}, X) {{izx}}", helpers::to_hex(low as u32, 2));
-                instruction_address.push_str(&string_rep);
-            } else if LOOKUP_TABLE[opcode as usize].am as usize == M6502::IZY as usize {
-                // If the opcode's addressing mode is indirect indexed with Y offset, get the next
-                // byte, format it as a hex string with "($...),Y" and add it to the instruction address.
+                    low = bus.read(address as u16, true);
+                    address += 1;
+                    high = 0x00;
+                    let string_rep: String = format!("(${:x}), Y {{izy}}", low);
+                    instruction_address.push_str(&string_rep);
+                }
+                AddrModeMneumonic::ABS => {
+                    // If the opcode's addressing mode is absolute, get the next two bytes, combine them,
+                    // format them as a hex string with "{abs}", and add it to the instruction address.
 
-                low = bus.read(address as u16, true);
-                address += 1;
-                high = 0x00;
-                let string_rep = format!("(${}), Y {{izy}}", helpers::to_hex(low as u32, 2));
-                instruction_address.push_str(&string_rep);
-            } else if LOOKUP_TABLE[opcode as usize].am as usize == M6502::ABS as usize {
-                // If the opcode's addressing mode is absolute, get the next two bytes, combine them,
-                // format them as a hex string with "{abs}", and add it to the instruction address.
+                    low = bus.read(address as u16, false);
+                    address += 1;
+                    high = bus.read(address as u16, false);
+                    address += 1;
+                    let string_rep: String =
+                        format!("${:x} {{abs}}", (((high as u32) << 8) | low as u32));
+                    instruction_address.push_str(&string_rep);
+                }
+                AddrModeMneumonic::ABX => {
+                    // If the opcode's addressing mode is absolute with X offset, get the next two bytes,
+                    // combine them, format them as a hex string with "{abx}", and add it to the instruction address.
 
-                low = bus.read(address as u16, false);
-                address += 1;
-                high = bus.read(address as u16, false);
-                address += 1;
-                let string_rep = format!(
-                    "${} {{abs}}",
-                    helpers::to_hex(((high << 8) | low) as u32, 4)
-                );
-                instruction_address.push_str(&string_rep);
-            } else if LOOKUP_TABLE[opcode as usize].am as usize == M6502::ABX as usize {
-                // If the opcode's addressing mode is absolute with X offset, get the next two bytes,
-                // combine them, format them as a hex string with "{abx}", and add it to the instruction address.
+                    low = bus.read(address as u16, false);
+                    address += 1;
+                    high = bus.read(address as u16, false);
+                    address += 1;
+                    let string_rep: String =
+                        format!("${:x} {{abx}}", (((high as u32) << 8) | low as u32));
+                    instruction_address.push_str(&string_rep);
+                }
+                AddrModeMneumonic::ABY => {
+                    // If the opcode's addressing mode is absolute with Y offset, get the next two bytes,
+                    // combine them, format them as a hex string with "{aby}", and add it to the instruction address.
 
-                low = bus.read(address as u16, false);
-                address += 1;
-                high = bus.read(address as u16, false);
-                address += 1;
-                let string_rep = format!(
-                    "${} {{abx}}",
-                    helpers::to_hex(((high << 8) | low) as u32, 4)
-                );
-                instruction_address.push_str(&string_rep);
-            } else if LOOKUP_TABLE[opcode as usize].am as usize == M6502::ABY as usize {
-                // If the opcode's addressing mode is absolute with Y offset, get the next two bytes,
-                // combine them, format them as a hex string with "{aby}", and add it to the instruction address.
+                    low = bus.read(address as u16, false);
+                    address += 1;
+                    high = bus.read(address as u16, false);
+                    address += 1;
+                    let string_rep: String =
+                        format!("${:x} {{aby}}", (((high as u32) << 8) | low as u32));
+                    instruction_address.push_str(&string_rep);
+                }
+                AddrModeMneumonic::IND => {
+                    // If the opcode's addressing mode is indirect, get the next two bytes, combine them,
+                    // format them as a hex string with "($...)", and add it to the instruction address.
 
-                low = bus.read(address as u16, false);
-                address += 1;
-                high = bus.read(address as u16, false);
-                address += 1;
-                let string_rep = format!(
-                    "${} {{aby}}",
-                    helpers::to_hex(((high << 8) | low) as u32, 4)
-                );
-                instruction_address.push_str(&string_rep);
-            } else if LOOKUP_TABLE[opcode as usize].am as usize == M6502::IND as usize {
-                // If the opcode's addressing mode is indirect, get the next two bytes, combine them,
-                // format them as a hex string with "($...)", and add it to the instruction address.
+                    low = bus.read(address as u16, false);
+                    address += 1;
+                    high = bus.read(address as u16, false);
+                    address += 1;
+                    let string_rep: String =
+                        format!("(${:x}) {{ind}}", (((high as u32) << 8) | low as u32));
+                    instruction_address.push_str(&string_rep);
+                }
+                AddrModeMneumonic::REL => {
+                    // Check if the opcode corresponds to relative addressing mode
 
-                low = bus.read(address as u16, false);
-                address += 1;
-                high = bus.read(address as u16, false);
-                address += 1;
-                let string_rep = format!(
-                    "(${}) {{ind}}",
-                    helpers::to_hex(((high << 8) | low) as u32, 4)
-                );
-                instruction_address.push_str(&string_rep);
-            } else if LOOKUP_TABLE[opcode as usize].am as usize == M6502::REL as usize {
-                // Check if the opcode corresponds to relative addressing mode
+                    // Read the byte value at the memory address and increment the program counter
+                    value = bus.read(address as u16, false);
+                    address += 1;
 
-                // Read the byte value at the memory address and increment the program counter
-                value = bus.read(address as u16, false);
-                address += 1;
+                    // Generate a string representation of the instruction address using the value
+                    // read and the program counter
+                    let string_rep: String =
+                        format!("${:x} [${:x}] {{rel}}", value, address + value as u32);
 
-                // Generate a string representation of the instruction address using the value
-                // read and the program counter
-                let string_rep = format!(
-                    "${} [${}] {{rel}}",
-                    helpers::to_hex(value as u32, 2),
-                    helpers::to_hex(address + value as u32, 4)
-                );
-
-                // Append the string representation to the existing instruction address string
-                instruction_address.push_str(&string_rep);
+                    // Append the string representation to the existing instruction address string
+                    instruction_address.push_str(&string_rep);
+                }
             }
             lined_maps.insert(line_address, instruction_address.clone());
         }
@@ -584,7 +612,7 @@ impl M6502Opcodes for M6502 {
     /// assert_eq!(cpu.get_flag(M6502::M6502Flags::Z), false);
     /// assert_eq!(cpu.get_flag(M6502::M6502Flags::N), false);
     ///
-    /// let cycles = M6502::instructions::and(&mut cpu, &mut bus);
+    /// let cycles = M6502::instructions::AND(&mut cpu, &mut bus);
     ///
     /// assert_eq!(cycles, 1);
     /// assert_eq!(cpu.acc, 0x12 & 0x34);
@@ -667,7 +695,7 @@ impl M6502Opcodes for M6502 {
         cpu.set_flag(CpuFlags::C, (cpu.temp & HIGH_BYTE) > 0);
         cpu.set_flag(CpuFlags::Z, (cpu.temp & LOW_BYTE) == 0);
         cpu.set_flag(CpuFlags::N, (cpu.temp & TOP_BIT_THRESH) != 0);
-        if LOOKUP_TABLE[cpu.opcode as usize].am as usize == M6502::IMP as usize {
+        if LOOKUP_TABLE[cpu.opcode as usize].addr_mode as usize == M6502::IMP as usize {
             cpu.a = (cpu.temp & LOW_BYTE) as u8;
         } else {
             bus.write(cpu.abs, (cpu.temp & LOW_BYTE) as u8);
@@ -1327,7 +1355,30 @@ impl M6502Opcodes for M6502 {
         cpu.pc = cpu.abs;
         0u8
     }
-
+    /// Load Accumulator with Memory
+    ///
+    /// This instruction loads a value from memory into the accumulator register (A).
+    ///
+    /// # Arguments
+    ///
+    /// * `cpu` - A mutable reference to the [`M6502`] struct representing the CPU
+    /// * `bus` - A mutable reference to the [`Bus`] struct representing the system bus
+    ///
+    /// # Returns
+    ///
+    /// The result of the operation, which is always 1.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use dh6502_cpu::M6502;
+    /// use bus::Bus;
+    ///
+    /// let mut cpu = M6502::new();
+    /// let mut bus = Bus::new();
+    ///
+    /// assert_eq!(LDA(&mut cpu, &mut bus), 1);
+    /// ```
     #[inline]
     fn LDA(cpu: &mut M6502, bus: &mut Bus) -> u8 {
         cpu.a = cpu.fetch(bus);
@@ -1377,7 +1428,7 @@ impl M6502Opcodes for M6502 {
         cpu.set_flag(CpuFlags::C, cpu.fetched & 0x0001 != 0x0000);
         cpu.set_flag(CpuFlags::Z, cpu.temp & LOW_BYTE == 0x0000);
         cpu.set_flag(CpuFlags::N, cpu.temp & TOP_BIT_THRESH != 0x0000);
-        if LOOKUP_TABLE[cpu.opcode as usize].am as usize == M6502::IMP as usize {
+        if LOOKUP_TABLE[cpu.opcode as usize].addr_mode as usize == M6502::IMP as usize {
             cpu.a = cpu.temp as u8 & LOW_BYTE as u8;
         } else {
             bus.write(cpu.abs, (cpu.temp & LOW_BYTE) as u8);
@@ -1443,7 +1494,7 @@ impl M6502Opcodes for M6502 {
         cpu.set_flag(CpuFlags::C, cpu.temp & HIGH_BYTE != 0x0000);
         cpu.set_flag(CpuFlags::Z, cpu.temp & LOW_BYTE == 0x0000);
         cpu.set_flag(CpuFlags::N, cpu.temp & TOP_BIT_THRESH != 0x0000);
-        if LOOKUP_TABLE[cpu.opcode as usize].am as usize == M6502::IMP as usize {
+        if LOOKUP_TABLE[cpu.opcode as usize].addr_mode as usize == M6502::IMP as usize {
             cpu.a = (cpu.temp & LOW_BYTE) as u8;
         } else {
             bus.write(cpu.abs, (cpu.temp & LOW_BYTE) as u8);
@@ -1457,7 +1508,7 @@ impl M6502Opcodes for M6502 {
         cpu.set_flag(CpuFlags::C, cpu.fetched & 0x01 == 0x00);
         cpu.set_flag(CpuFlags::Z, cpu.temp & LOW_BYTE == 0x00);
         cpu.set_flag(CpuFlags::N, cpu.temp & TOP_BIT_THRESH != 0x00);
-        if LOOKUP_TABLE[cpu.opcode as usize].am as usize == M6502::IMP as usize {
+        if LOOKUP_TABLE[cpu.opcode as usize].addr_mode as usize == M6502::IMP as usize {
             cpu.a = (cpu.temp & LOW_BYTE) as u8;
         } else {
             bus.write(cpu.abs, (cpu.temp & LOW_BYTE) as u8);
@@ -1672,6 +1723,7 @@ impl M6502AddrModes for M6502 {
         }
         0x00
     }
+
     /// This function implements the "Indirect" addressing mode for the M6502 CPU.
     /// It reads the two bytes located at the program counter address, and uses them as a 16-bit pointer
     /// to read the actual 16-bit address from memory, which is then stored in the cpu's addr_abs register.
@@ -1687,7 +1739,7 @@ impl M6502AddrModes for M6502 {
     ///
     /// # Example
     ///
-    ///```
+    ///```no_run
     /// # use rust_computer_emulator::components::{M6502, Bus};
     /// # let mut cpu = M6502::new();
     /// # let mut bus = Bus::new();
@@ -1789,11 +1841,11 @@ impl M6502AddrModes for M6502 {
     /// The result of the operation, which is either 0 or 1 depending on whether
     /// the operation resulted in a page boundary crossing.
     fn IZY(cpu: &mut M6502, bus: &mut Bus) -> u8 {
-        let t = bus.read(cpu.pc, false);
+        let t: u8 = bus.read(cpu.pc, false);
         cpu.pc += 1;
 
-        let lo = bus.read((t + cpu.y) as u16 & LOW_BYTE, false);
-        let hi = bus.read((t + cpu.y + 1) as u16 & LOW_BYTE, false);
+        let lo: u8 = bus.read((t + cpu.y) as u16 & LOW_BYTE, false);
+        let hi: u8 = bus.read((t + cpu.y + 1) as u16 & LOW_BYTE, false);
 
         cpu.abs = (((hi as u16) << 8u16) | (lo as u16) << 8u16) as u16;
         cpu.abs += cpu.y as u16;

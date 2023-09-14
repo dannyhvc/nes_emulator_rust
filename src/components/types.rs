@@ -1,6 +1,17 @@
 #![allow(non_snake_case)]
 use super::{bus::Bus, dh6502_cpu::M6502};
 
+/// ```no_run
+/// E = 0       Empty Default
+/// C = 1 << 0  Carry Bit
+/// Z = 1 << 1  Zero
+/// I = 1 << 2  Disable Interrupts
+/// D = 1 << 3  Decminal Mode
+/// B = 1 << 4  Break
+/// U = 1 << 5  Unused
+/// V = 1 << 6  Overflow
+/// N = 1 << 7  Negative
+/// ```
 #[derive(Debug, PartialEq, Eq)]
 pub enum CpuFlags {
     E = 0,      // Empty default
@@ -34,30 +45,38 @@ impl Default for CpuFlags {
 ///
 /// The `fn(&mut M6502, &mut Bus) -> u8` function pointers are expected to implement the
 /// opcode and addressing mode logic for the instruction, respectively.
+#[derive(Debug)]
 pub struct CpuInstruction {
     pub mneumonic: InstructionMneumonic,
-    pub op: for<'a, 'b> fn(&'a mut M6502, &'b mut Bus) -> u8, // OPCODE
-    pub am: for<'a, 'b> fn(&'a mut M6502, &'b mut Bus) -> u8, // ADDRESSING MODE
-    pub cycles: u8,                                           // CYCLE COUNT
+    pub op_code: for<'a, 'b> fn(&'a mut M6502, &'b mut Bus) -> u8, // OPCODE
+    pub addr_mode: for<'a, 'b> fn(&'a mut M6502, &'b mut Bus) -> u8, // ADDRESSING MODE
+    pub cycles: u8,                                                // CYCLE COUNT
 }
 
+/// `InstructionMneumonic` is a structure that represents the mnemonic of an instruction.
+///
+/// # Fields
+///
+/// * `name: &'static str` - This field represents the name of the instruction mnemonic.
+/// * `op_code`: [`OpcodeMneumonic`] - This field represents the opcode of the instruction mnemonic.
+/// * `am_name`: [`AddrModeMneumonic`] - This field represents the addressing mode of the instruction mnemonic.
 #[derive(Debug)]
 pub struct InstructionMneumonic {
     pub name: &'static str,
-    pub op_name: OpcodeMneumonic,
+    pub op_code: OpcodeMneumonic,
     pub am_name: AddrModeMneumonic,
 }
 impl InstructionMneumonic {
     pub fn new(name: &'static str, op_name: OpcodeMneumonic, am_name: AddrModeMneumonic) -> Self {
         Self {
             name,
-            op_name,
+            op_code: op_name,
             am_name,
         }
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum OpcodeMneumonic {
     ADC,
     AND,
@@ -123,7 +142,7 @@ impl Default for OpcodeMneumonic {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum AddrModeMneumonic {
     IMP,
     IMM,

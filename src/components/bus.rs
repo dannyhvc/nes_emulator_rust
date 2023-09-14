@@ -1,4 +1,4 @@
-use super::{dh6502_cpu::M6502, BOTTOM_OF_RAM, KB, TOP_OF_RAM};
+use super::{dh6502_cpu::M6502, START_OF_RAM, KB, END_OF_RAM};
 
 #[derive(Debug, Clone)]
 pub struct Bus {
@@ -16,7 +16,7 @@ impl Bus {
 
     #[inline]
     pub fn read(&self, addr: u16, _b_read_only: bool) -> u8 {
-        if addr >= BOTTOM_OF_RAM && addr <= TOP_OF_RAM {
+        if addr >= START_OF_RAM && addr <= END_OF_RAM {
             return self.cpu_ram[addr as usize];
         }
         0x00
@@ -24,7 +24,7 @@ impl Bus {
 
     #[inline]
     pub fn write(&mut self, addr: u16, data: u8) {
-        if addr >= BOTTOM_OF_RAM && addr <= TOP_OF_RAM {
+        if addr >= START_OF_RAM && addr <= END_OF_RAM {
             self.cpu_ram[addr as usize] = data;
         }
     }
