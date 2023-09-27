@@ -1,19 +1,18 @@
-use once_cell::sync::Lazy;
+pub mod bus;
+pub mod cartridge;
+pub mod dh_cpu;
+pub mod dh_ppu;
+pub mod mappers;
+pub mod types;
 
-use self::dh6502_cpu::M6502;
+use self::dh_cpu::CPU;
 use self::types::AddrModeMneumonic;
 use self::types::CpuInstruction;
 use self::types::M6502AddrModes;
 use self::types::M6502Opcodes;
 use self::types::OpcodeMneumonic;
 use crate::components::types::InstructionMneumonic;
-
-pub mod bus;
-pub mod cartridge;
-// pub mod dh2C02_ppu;
-pub mod dh6502_cpu;
-pub mod mappers;
-pub mod types;
+use once_cell::sync::Lazy;
 
 const START_OF_RAM: u16 = 0x0000;
 const END_OF_RAM: u16 = 0xFFFF;
@@ -42,8 +41,8 @@ macro_rules! cins {
     ($op_code_ident:ident $am_name:ident $cycles:literal) => {
         CpuInstruction {
             mneumonic: imneumonic!($op_code_ident, $am_name),
-            op_code: M6502::$op_code_ident,
-            addr_mode: M6502::$am_name,
+            op_code: CPU::$op_code_ident,
+            addr_mode: CPU::$am_name,
             cycles: $cycles,
         }
     };

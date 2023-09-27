@@ -15,25 +15,25 @@ impl mapper::MapperFn for M000 {
         // if PRGROM is 32KB
         //     CPU Address Bus          PRG ROM
         //     0x8000 -> 0xFFFF: Map    0x0000 -> 0x7FFF
-        return match addr {
+        match addr {
             0x8000..=0xFFFF => {
                 let mapping: u32 = if self.0.prg_bank > 1 { 0x7FFF } else { 0x3FFF };
                 *mapped_addr = addr as u32 & mapping;
                 true
             }
             _ => false,
-        };
+        }
     }
 
     fn allow_cpu_write(&self, addr: u16, mapped_addr: &mut u32) -> bool {
-        return match addr {
+        match addr {
             0x8000..=0xFFFF => {
                 let mapping: u32 = if self.0.prg_bank > 1 { 0x7FFF } else { 0x3FFF };
                 *mapped_addr = addr as u32 & mapping;
                 true
             }
             _ => false,
-        };
+        }
     }
 
     //no mapping for ppu treat as RAM
@@ -41,22 +41,22 @@ impl mapper::MapperFn for M000 {
         // There is no mapping required for PPU
         // PPU Address Bus          CHR ROM
         // 0x0000 -> 0x1FFF: Map    0x0000 -> 0x1FFF
-        return match addr {
+        match addr {
             0x0000..=0x1FFF => {
                 *mapped_addr = addr as u32;
                 true
             }
             _ => false,
-        };
+        }
     }
 
     fn allow_ppu_write(&self, addr: u16, mapped_addr: &mut u32) -> bool {
-        return match addr {
+        match addr {
             0x0000..=0x1FFF if self.0.chr_bank == 0 => {
                 *mapped_addr = addr as u32;
-                return true;
+                true
             }
             _ => false,
-        };
+        }
     }
 }
