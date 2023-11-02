@@ -17,7 +17,8 @@ impl mapper::MapperFn for M000 {
         //     0x8000 -> 0xFFFF: Map    0x0000 -> 0x7FFF
         match addr {
             0x8000..=0xFFFF => {
-                let mapping: u32 = if self.0.prg_bank > 1 { 0x7FFF } else { 0x3FFF };
+                let mapping: u32 =
+                    if self.0.prg_bank > 1 { 0x7FFF } else { 0x3FFF };
                 *mapped_addr = addr as u32 & mapping;
                 true
             }
@@ -28,7 +29,8 @@ impl mapper::MapperFn for M000 {
     fn allow_cpu_write(&self, addr: u16, mapped_addr: &mut u32) -> bool {
         match addr {
             0x8000..=0xFFFF => {
-                let mapping: u32 = if self.0.prg_bank > 1 { 0x7FFF } else { 0x3FFF };
+                let mapping: u32 =
+                    if self.0.prg_bank > 1 { 0x7FFF } else { 0x3FFF };
                 *mapped_addr = addr as u32 & mapping;
                 true
             }

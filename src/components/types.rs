@@ -50,7 +50,7 @@ pub struct CpuInstruction {
     pub mneumonic: InstructionMneumonic,
     pub op_code: for<'a, 'b> fn(&'a mut CPU, &'b mut Bus) -> u8, // OPCODE
     pub addr_mode: for<'a, 'b> fn(&'a mut CPU, &'b mut Bus) -> u8, // ADDRESSING MODE
-    pub cycles: u8,                                                // CYCLE COUNT
+    pub cycles: u8, // CYCLE COUNT
 }
 
 /// `InstructionMneumonic` is a structure that represents the mnemonic of an instruction.
@@ -67,7 +67,11 @@ pub struct InstructionMneumonic {
     pub am_name: AddrModeMneumonic,
 }
 impl InstructionMneumonic {
-    pub fn new(name: &'static str, op_name: OpcodeMneumonic, am_name: AddrModeMneumonic) -> Self {
+    pub fn new(
+        name: &'static str,
+        op_name: OpcodeMneumonic,
+        am_name: AddrModeMneumonic,
+    ) -> Self {
         Self {
             name,
             op_code: op_name,

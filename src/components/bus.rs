@@ -56,21 +56,26 @@ impl Bus {
 
             let ins_addr: u16 = current_instruction[0];
             let opcode: u8 = current_instruction[1] as u8;
-            match current_instruction.len() - 1 {
-                // 0 byte operand
-                1 => {}
+            self.write(ins_addr, opcode);
 
+            // minus 2 to so that we don't include the address of the instruction or the opcode
+            match current_instruction.len() - 2 {
                 // 1 byte operand
                 2 => {
                     let operand: u8 = current_instruction[2] as u8;
+                    self.write(ins_addr + 1, operand);
                 }
 
                 // 2 byte operand
                 3 => {
-                    let high_byte_operand: u8 = current_instruction[2] as u8;
-                    let low_byte_operand: u8 = current_instruction[3] as u8;
+                    let LSB: u8 = current_instruction[2] as u8;
+                    self.write(ins_addr + 1, LSB);
+                    let MSB: u8 = current_instruction[3] as u8;
+                    self.write(ins_addr + 2, MSB);
                 }
-                _ => panic!("Instruction operand length can be either 0,1, or 2 bytes"),
+                _ => panic!(
+                    "Instruction operand length can be either 0,1, or 2 bytes"
+                ),
             };
         }
     }

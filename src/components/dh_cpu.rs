@@ -37,12 +37,12 @@ pub struct CPU {
     status: u8, // Status Register
 
     // Assisstive variables to facilitate emulation
-    fetched: u8,       // Represents the working input value to the ALU
-    temp: u16,         // A convenience variable used everywhere
-    abs: u16,          // All used memory addresses end up in here
-    rel: u16,          // Represents absolute address following a branch
-    opcode: u8,        // Is the instruction byte
-    cycles: u8,        // Counts how many cycles the instruction has remaining
+    fetched: u8, // Represents the working input value to the ALU
+    temp: u16,   // A convenience variable used everywhere
+    abs: u16,    // All used memory addresses end up in here
+    rel: u16,    // Represents absolute address following a branch
+    opcode: u8,  // Is the instruction byte
+    cycles: u8,  // Counts how many cycles the instruction has remaining
     _clock_count: u32, // A global accumulation of the number of clocks
 }
 
@@ -233,7 +233,8 @@ impl CPU {
             cpu.set_flag(CpuFlags::U, true);
             cpu.pc += 1;
 
-            let instruction: &CpuInstruction = &LOOKUP_TABLE[cpu.opcode as usize];
+            let instruction: &CpuInstruction =
+                &LOOKUP_TABLE[cpu.opcode as usize];
             cpu.cycles = instruction.cycles;
 
             let added_cycle1: u8 = (instruction.op_code)(cpu, bus);
@@ -330,7 +331,11 @@ impl CPU {
     ///
     /// A HashMap<u16, String> containing the disassembled code, with the key being the address of the instruction and
     /// the value being a String representation of the instruction.
-    pub fn disassemble(bus: &mut Bus, start: u16, stop: u16) -> HashMap<u16, String> {
+    pub fn disassemble(
+        bus: &mut Bus,
+        start: u16,
+        stop: u16,
+    ) -> HashMap<u16, String> {
         // Initialize variables for tracking the current address, instruction value, and line address.
         let mut address: u32 = start.into();
         let mut _value: u8;
@@ -339,14 +344,16 @@ impl CPU {
         let mut line_address: u16;
 
         // Create a HashMap to store the resulting instructions with their corresponding line address.
-        let mut lined_maps: HashMap<u16, String> = HashMap::<u16, String>::new();
+        let mut lined_maps: HashMap<u16, String> =
+            HashMap::<u16, String>::new();
 
         // Loop through memory between start and stop addresses.
         while address <= stop as u32 {
             line_address = address as u16;
 
             // Initialize a string to hold the address and instruction for the current line.
-            let mut instruction_address: String = format!("${:x}{}", address, ": ");
+            let mut instruction_address: String =
+                format!("${:x}{}", address, ": ");
 
             // Read the opcode from memory at the current address.
             let opcode: u8 = bus.read(address as u16, true);
@@ -354,7 +361,8 @@ impl CPU {
             let instruction: &CpuInstruction = &LOOKUP_TABLE[opcode as usize];
 
             address += 1;
-            instruction_address.push_str(format!("{} ", instruction.mneumonic.name).as_str());
+            instruction_address
+                .push_str(format!("{} ", instruction.mneumonic.name).as_str());
 
             // matching the addressing mode
             match instruction.mneumonic.am_name {
@@ -427,8 +435,10 @@ impl CPU {
                     address += 1;
                     _high = bus.read(address as u16, false);
                     address += 1;
-                    let string_rep: String =
-                        format!("${:x} {{abs}}", (((_high as u32) << 8) | low as u32));
+                    let string_rep: String = format!(
+                        "${:x} {{abs}}",
+                        (((_high as u32) << 8) | low as u32)
+                    );
                     instruction_address.push_str(&string_rep);
                 }
 
@@ -439,8 +449,10 @@ impl CPU {
                     address += 1;
                     _high = bus.read(address as u16, false);
                     address += 1;
-                    let string_rep: String =
-                        format!("${:x} {{abx}}", (((_high as u32) << 8) | low as u32));
+                    let string_rep: String = format!(
+                        "${:x} {{abx}}",
+                        (((_high as u32) << 8) | low as u32)
+                    );
                     instruction_address.push_str(&string_rep);
                 }
 
@@ -451,8 +463,10 @@ impl CPU {
                     address += 1;
                     _high = bus.read(address as u16, false);
                     address += 1;
-                    let string_rep: String =
-                        format!("${:x} {{aby}}", (((_high as u32) << 8) | low as u32));
+                    let string_rep: String = format!(
+                        "${:x} {{aby}}",
+                        (((_high as u32) << 8) | low as u32)
+                    );
                     instruction_address.push_str(&string_rep);
                 }
 
@@ -463,8 +477,10 @@ impl CPU {
                     address += 1;
                     _high = bus.read(address as u16, false);
                     address += 1;
-                    let string_rep: String =
-                        format!("(${:x}) {{ind}}", (((_high as u32) << 8) | low as u32));
+                    let string_rep: String = format!(
+                        "(${:x}) {{ind}}",
+                        (((_high as u32) << 8) | low as u32)
+                    );
                     instruction_address.push_str(&string_rep);
                 }
 
@@ -476,8 +492,11 @@ impl CPU {
 
                     // Generate a string representation of the instruction address using the value
                     // read and the program counter
-                    let string_rep: String =
-                        format!("${:x} [${:x}] {{rel}}", _value, address + _value as u32);
+                    let string_rep: String = format!(
+                        "${:x} [${:x}] {{rel}}",
+                        _value,
+                        address + _value as u32
+                    );
 
                     // Append the string representation to the existing instruction address string
                     instruction_address.push_str(&string_rep);
@@ -676,7 +695,10 @@ impl M6502Opcodes for CPU {
         // The signed Overflow flag is set based on all that up there! :D
         cpu.set_flag(
             CpuFlags::V,
-            !(cpu.a as u16 ^ cpu.fetched as u16) & (cpu.a as u16 ^ cpu.temp) & 0x0080 != 0,
+            !(cpu.a as u16 ^ cpu.fetched as u16)
+                & (cpu.a as u16 ^ cpu.temp)
+                & 0x0080
+                != 0,
         );
 
         // The negative flag is set to the most significant bit of the result
@@ -809,7 +831,9 @@ impl M6502Opcodes for CPU {
         cpu.set_flag(CpuFlags::C, (cpu.temp & HIGH_BYTE) > 0);
         cpu.set_flag(CpuFlags::Z, (cpu.temp & LOW_BYTE) == 0);
         cpu.set_flag(CpuFlags::N, (cpu.temp & TOP_BIT_THRESH) != 0);
-        if LOOKUP_TABLE[cpu.opcode as usize].addr_mode as usize == CPU::IMP as usize {
+        if LOOKUP_TABLE[cpu.opcode as usize].addr_mode as usize
+            == CPU::IMP as usize
+        {
             cpu.a = (cpu.temp & LOW_BYTE) as u8;
         } else {
             bus.write(cpu.abs, (cpu.temp & LOW_BYTE) as u8);
@@ -1297,7 +1321,9 @@ impl M6502Opcodes for CPU {
         cpu.sp -= 1;
         cpu.set_flag(CpuFlags::B, true);
 
-        cpu.pc = ((bus.read(0xFFFE, false) != 0x0u8) | (bus.read(0xFFFF, false) != 0x0u8)).into();
+        cpu.pc = ((bus.read(0xFFFE, false) != 0x0u8)
+            | (bus.read(0xFFFF, false) != 0x0u8))
+            .into();
         0x0u8
     }
 
@@ -1461,10 +1487,7 @@ impl M6502Opcodes for CPU {
     fn JSR(cpu: &mut CPU, bus: &mut Bus) -> u8 {
         cpu.pc -= 1;
 
-        bus.write(
-            0x0100 + cpu.sp as u16,
-            (cpu.pc << 8 & LOW_BYTE) as u8,
-        );
+        bus.write(0x0100 + cpu.sp as u16, (cpu.pc << 8 & LOW_BYTE) as u8);
         cpu.sp -= 1;
         bus.write(0x0100 + cpu.sp as u16, (cpu.pc & LOW_BYTE) as u8);
         cpu.sp -= 1;
@@ -1472,6 +1495,7 @@ impl M6502Opcodes for CPU {
         cpu.pc = cpu.abs;
         0u8
     }
+
     /// Load Accumulator with Memory
     ///
     /// This instruction loads a value from memory into the accumulator register (A).
@@ -1498,7 +1522,7 @@ impl M6502Opcodes for CPU {
     /// ```
     #[inline]
     fn LDA(cpu: &mut CPU, bus: &mut Bus) -> u8 {
-        cpu.a = cpu.fetch(bus);
+        cpu.a = cpu.fetch(bus); // using a
         cpu.set_flag(CpuFlags::Z, cpu.a == 0x00);
         cpu.set_flag(CpuFlags::N, cpu.a & TOP_BIT_THRESH as u8 != 0x00);
         1u8
@@ -1545,7 +1569,9 @@ impl M6502Opcodes for CPU {
         cpu.set_flag(CpuFlags::C, cpu.fetched & 0x0001 != 0x0000);
         cpu.set_flag(CpuFlags::Z, cpu.temp & LOW_BYTE == 0x0000);
         cpu.set_flag(CpuFlags::N, cpu.temp & TOP_BIT_THRESH != 0x0000);
-        if LOOKUP_TABLE[cpu.opcode as usize].addr_mode as usize == CPU::IMP as usize {
+        if LOOKUP_TABLE[cpu.opcode as usize].addr_mode as usize
+            == CPU::IMP as usize
+        {
             cpu.a = cpu.temp as u8 & LOW_BYTE as u8;
         } else {
             bus.write(cpu.abs, (cpu.temp & LOW_BYTE) as u8);
@@ -1611,7 +1637,9 @@ impl M6502Opcodes for CPU {
         cpu.set_flag(CpuFlags::C, cpu.temp & HIGH_BYTE != 0x0000);
         cpu.set_flag(CpuFlags::Z, cpu.temp & LOW_BYTE == 0x0000);
         cpu.set_flag(CpuFlags::N, cpu.temp & TOP_BIT_THRESH != 0x0000);
-        if LOOKUP_TABLE[cpu.opcode as usize].addr_mode as usize == CPU::IMP as usize {
+        if LOOKUP_TABLE[cpu.opcode as usize].addr_mode as usize
+            == CPU::IMP as usize
+        {
             cpu.a = (cpu.temp & LOW_BYTE) as u8;
         } else {
             bus.write(cpu.abs, (cpu.temp & LOW_BYTE) as u8);
@@ -1621,11 +1649,14 @@ impl M6502Opcodes for CPU {
 
     #[inline]
     fn ROR(cpu: &mut CPU, bus: &mut Bus) -> u8 {
-        cpu.temp = (cpu.get_flag(CpuFlags::C) << 7 | cpu.fetch(bus) >> 1).into();
+        cpu.temp =
+            (cpu.get_flag(CpuFlags::C) << 7 | cpu.fetch(bus) >> 1).into();
         cpu.set_flag(CpuFlags::C, cpu.fetched & 0x01 == 0x00);
         cpu.set_flag(CpuFlags::Z, cpu.temp & LOW_BYTE == 0x00);
         cpu.set_flag(CpuFlags::N, cpu.temp & TOP_BIT_THRESH != 0x00);
-        if LOOKUP_TABLE[cpu.opcode as usize].addr_mode as usize == CPU::IMP as usize {
+        if LOOKUP_TABLE[cpu.opcode as usize].addr_mode as usize
+            == CPU::IMP as usize
+        {
             cpu.a = (cpu.temp & LOW_BYTE) as u8;
         } else {
             bus.write(cpu.abs, (cpu.temp & LOW_BYTE) as u8);
@@ -1666,7 +1697,8 @@ impl M6502Opcodes for CPU {
         cpu.set_flag(CpuFlags::Z, cpu.temp & HIGH_BYTE == 0x0000);
         cpu.set_flag(
             CpuFlags::V,
-            (cpu.temp ^ cpu.a as u16) & (cpu.temp ^ value) & TOP_BIT_THRESH != 0x0000,
+            (cpu.temp ^ cpu.a as u16) & (cpu.temp ^ value) & TOP_BIT_THRESH
+                != 0x0000,
         );
         cpu.set_flag(CpuFlags::N, cpu.temp & TOP_BIT_THRESH == 0x0000);
         cpu.a = cpu.temp as u8 & LOW_BYTE as u8;
@@ -1793,6 +1825,40 @@ impl M6502AddrModes for CPU {
         0x00
     }
 
+    /// Absolute Addressing (ABS)
+    ///
+    /// The `ABS` addressing mode is used to load a 16-bit absolute memory address
+    /// from two consecutive bytes in memory and store it in the CPU's `abs` register.
+    /// The absolute address is formed by combining a 16-bit little-endian value from
+    /// two sequential memory locations.
+    ///
+    /// Flags affected: None
+    ///
+    /// # Arguments
+    ///
+    /// * `cpu` - A mutable reference to the [`CPU`] representing the MOS 6502 CPU.
+    /// * `bus` - A mutable reference to the system [`Bus`] for memory access.
+    ///
+    /// # Returns
+    ///
+    /// This function returns the number of clock cycles used by the instruction, which is 0.
+    ///
+    /// # Example
+    ///
+    /// ```rust no_run
+    /// // Example usage of the ABS addressing mode
+    /// let mut cpu = CPU::new();
+    /// let mut bus = Bus::new();
+    ///
+    /// // Set the memory content at a specific address
+    /// bus.write(0x8000, 0x12); // LSB
+    /// bus.write(0x8001, 0x34); // MSB
+    ///
+    /// cpu.pc = 0x8000; // Set the program counter to the address of the ABS instruction
+    /// ABS(&mut cpu, &mut bus); // Execute the ABS instruction
+    ///
+    /// // The `abs` register in the `cpu` will now hold the value 0x3412 (little-endian).
+    /// ```
     fn ABS(cpu: &mut CPU, bus: &mut Bus) -> u8 {
         let lo: u32 = bus.read(cpu.pc as u16, false).into();
         cpu.pc += 1;
@@ -1936,12 +2002,8 @@ impl M6502AddrModes for CPU {
         let t: u8 = bus.read(cpu.pc, false);
         cpu.pc += 1;
 
-        let lo: u32 = bus
-            .read((t + cpu.x) as u16 & LOW_BYTE, false)
-            .into();
-        let hi: u32 = bus
-            .read((t + cpu.x + 1) as u16 & LOW_BYTE, false)
-            .into();
+        let lo: u32 = bus.read((t + cpu.x) as u16 & LOW_BYTE, false).into();
+        let hi: u32 = bus.read((t + cpu.x + 1) as u16 & LOW_BYTE, false).into();
 
         cpu.abs = ((hi << 8u8) | lo << 8u8) as u16 >> 8u16;
         0x00

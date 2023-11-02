@@ -89,7 +89,7 @@ fn test_mini_program() {
     bus.write(0x03, 0x28);
 
     let ttape = bs![
-        //  addr        opc   cache
+        //  addr        opc   operand(s)
         bs![0xC000_u16, 0xA5, 0x0],
         bs![0xC002_u16, 0x85, 0x2],
         bs![0xC004_u16, 0xA5, 0x1],
