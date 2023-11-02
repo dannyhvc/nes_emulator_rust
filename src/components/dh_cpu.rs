@@ -1794,16 +1794,107 @@ impl M6502Opcodes for CPU {
 }
 
 impl M6502AddrModes for CPU {
+    /// Implied Addressing (IMP)
+    ///
+    /// The `IMP` addressing mode is used for instructions that have an implied operand.
+    /// In this addressing mode, the instruction operates on the CPU's registers or flags
+    /// without the need to fetch data from memory or use additional operands.
+    ///
+    /// Flags affected: None
+    ///
+    /// # Arguments
+    ///
+    /// * `cpu` - A mutable reference to the [`CPU`] representing the MOS 6502 CPU.
+    /// * `_bus` - A mutable reference to the system [`Bus`]. This reference is not used in this addressing mode.
+    ///
+    /// # Returns
+    ///
+    /// This function returns 0, as it does not affect clock cycles or execution time.
+    ///
+    /// # Example
+    ///
+    /// ```rust no_run
+    /// // Example usage of the IMP addressing mode
+    /// let mut cpu = CPU::new();
+    ///
+    /// // Set a value in the accumulator register
+    /// cpu.a = 0x42;
+    ///
+    /// IMP(&mut cpu, &mut bus); // Execute the IMP instruction
+    ///
+    /// // The `fetched` register in the `cpu` will now hold the value from the accumulator.
+    /// ```
     fn IMP(cpu: &mut CPU, _: &mut Bus) -> u8 {
         cpu.fetched = cpu.a;
         0x00
     }
 
+    /// Immediate Addressing (IMM)
+    ///
+    /// The `IMM` addressing mode is used to directly load an 8-bit value from the next
+    /// byte in the instruction stream. The value is stored in the `abs` register and is
+    /// not fetched from memory.
+    ///
+    /// Flags affected: None
+    ///
+    /// # Arguments
+    ///
+    /// * `cpu` - A mutable reference to the [`CPU`] representing the MOS 6502 CPU.
+    /// * `_bus` - A mutable reference to the system [`Bus`]. This reference is not used in this addressing mode.
+    ///
+    /// # Returns
+    ///
+    /// This function returns 0, as it does not affect clock cycles or execution time.
+    ///
+    /// # Example
+    ///
+    /// ```rust no_run
+    /// // Example usage of the IMM addressing mode
+    /// let mut cpu = CPU::new();
+    ///
+    /// cpu.pc = 0x8000; // Set the program counter to the address of the IMM instruction
+    /// IMM(&mut cpu, &mut bus); // Execute the IMM instruction
+    ///
+    /// // The `abs` register in the `cpu` will now hold the value from the next byte
+    /// // in the instruction stream.
+    /// ```
     fn IMM(cpu: &mut CPU, _bus: &mut Bus) -> u8 {
         cpu.abs = cpu.pc;
         0x00
     }
 
+    /// Zero Page Addressing (ZP0)
+    ///
+    /// The `ZP0` addressing mode is used to load an 8-bit value from a zero page address
+    /// specified by the byte at the current program counter (PC). This addressing mode is
+    /// often used for accessing data in the zero page of memory.
+    ///
+    /// Flags affected: None
+    ///
+    /// # Arguments
+    ///
+    /// * `cpu` - A mutable reference to the [`CPU`] representing the MOS 6502 CPU.
+    /// * `bus` - A mutable reference to the system [`Bus`] for memory access.
+    ///
+    /// # Returns
+    ///
+    /// This function returns 0, as it does not affect clock cycles or execution time.
+    ///
+    /// # Example
+    ///
+    /// ```rust no_run
+    /// // Example usage of the ZP0 addressing mode
+    /// let mut cpu = CPU::new();
+    /// let mut bus = Bus::new();
+    ///
+    /// // Set the memory content at a specific zero page address
+    /// bus.write(0x50, 0x42); // Data at the zero page address 0x50
+    ///
+    /// cpu.pc = 0x8000; // Set the program counter to the address of the ZP0 instruction
+    /// ZP0(&mut cpu, &mut bus); // Execute the ZP0 instruction
+    ///
+    /// // The `abs` register in the `cpu` will now hold the value 0x42 from the zero page.
+    /// ```
     fn ZP0(cpu: &mut CPU, bus: &mut Bus) -> u8 {
         cpu.abs = bus.read(cpu.pc, false) as u16;
         cpu.pc += 1;
@@ -1811,6 +1902,40 @@ impl M6502AddrModes for CPU {
         0x00
     }
 
+    /// Zero Page Indexed with X Register Addressing (ZPX)
+    ///
+    /// The `ZPX` addressing mode is used to load an 8-bit value from a zero page address,
+    /// which is the sum of the value in the X register and the byte at the current program
+    /// counter (PC). This addressing mode is often used for indexed memory access in the
+    /// zero page.
+    ///
+    /// Flags affected: None
+    ///
+    /// # Arguments
+    ///
+    /// * `cpu` - A mutable reference to the [`CPU`] representing the MOS 6502 CPU.
+    /// * `bus` - A mutable reference to the system [`Bus`] for memory access.
+    ///
+    /// # Returns
+    ///
+    /// This function returns 0, as it does not affect clock cycles or execution time.
+    ///
+    /// # Example
+    ///
+    /// ```rust no_run
+    /// // Example usage of the ZPX addressing mode
+    /// let mut cpu = CPU::new();
+    /// let mut bus = Bus::new();
+    ///
+    /// // Set the memory content at a specific zero page address
+    /// bus.write(0x50, 0x42); // Data at the zero page address 0x50
+    ///
+    /// cpu.pc = 0x8000; // Set the program counter to the address of the ZPX instruction
+    /// cpu.x = 0x0A; // Set the X register
+    /// ZPX(&mut cpu, &mut bus); // Execute the ZPX instruction
+    ///
+    /// // The `abs` register in the `cpu` will now hold the value 0x42 from the zero page.
+    /// ```
     fn ZPX(cpu: &mut CPU, bus: &mut Bus) -> u8 {
         cpu.abs = bus.read(cpu.pc + cpu.x as u16, false) as u16;
         cpu.pc += 1;
@@ -1818,6 +1943,40 @@ impl M6502AddrModes for CPU {
         0x00
     }
 
+    /// Zero Page Indexed with Y Register Addressing (ZPY)
+    ///
+    /// The `ZPY` addressing mode is used to load an 8-bit value from a zero page address,
+    /// which is the sum of the value in the Y register and the byte at the current program
+    /// counter (PC). This addressing mode is often used for indexed memory access in the
+    /// zero page.
+    ///
+    /// Flags affected: None
+    ///
+    /// # Arguments
+    ///
+    /// * `cpu` - A mutable reference to the [`CPU`] representing the MOS 6502 CPU.
+    /// * `bus` - A mutable reference to the system [`Bus`] for memory access.
+    ///
+    /// # Returns
+    ///
+    /// This function returns 0, as it does not affect clock cycles or execution time.
+    ///
+    /// # Example
+    ///
+    /// ```rust no_run
+    /// // Example usage of the ZPY addressing mode
+    /// let mut cpu = CPU::new();
+    /// let mut bus = Bus::new();
+    ///
+    /// // Set the memory content at a specific zero page address
+    /// bus.write(0x50, 0x42); // Data at the zero page address 0x50
+    ///
+    /// cpu.pc = 0x8000; // Set the program counter to the address of the ZPY instruction
+    /// cpu.y = 0x0A; // Set the Y register
+    /// ZPY(&mut cpu, &mut bus); // Execute the ZPY instruction
+    ///
+    /// // The `abs` register in the `cpu` will now hold the value 0x42 from the zero page.
+    /// ```
     fn ZPY(cpu: &mut CPU, bus: &mut Bus) -> u8 {
         cpu.abs = bus.read(cpu.pc + cpu.y as u16, false) as u16;
         cpu.pc += 1;
@@ -1868,6 +2027,42 @@ impl M6502AddrModes for CPU {
         0x00
     }
 
+    /// Absolute Indexed with X Register Addressing (ABX)
+    ///
+    /// The `ABX` addressing mode is used to load a 16-bit absolute memory address
+    /// from two consecutive bytes in memory, add the value in the X register to it,
+    /// and store the result in the CPU's `abs` register. This addressing mode is often
+    /// used for indexed memory access.
+    ///
+    /// Flags affected: None
+    ///
+    /// # Arguments
+    ///
+    /// * `cpu` - A mutable reference to the [`CPU`] representing the MOS 6502 CPU.
+    /// * `bus` - A mutable reference to the system [`Bus`] for memory access.
+    ///
+    /// # Returns
+    ///
+    /// This function returns the number of clock cycles used by the instruction, which is 1 if a page boundary is crossed, otherwise 0.
+    ///
+    /// # Example
+    ///
+    /// ```rust no_run
+    /// // Example usage of the ABX addressing mode
+    /// let mut cpu = CPU::new();
+    /// let mut bus = Bus::new();
+    ///
+    /// // Set the memory content at a specific address
+    /// bus.write(0x8000, 0x12); // LSB
+    /// bus.write(0x8001, 0x34); // MSB
+    ///
+    /// cpu.pc = 0x8000; // Set the program counter to the address of the ABX instruction
+    /// cpu.x = 0x10; // Set the X register
+    /// ABX(&mut cpu, &mut bus); // Execute the ABX instruction
+    ///
+    /// // The `abs` register in the `cpu` will now hold the value 0x3422 (little-endian)
+    /// // since X was added to the absolute address.
+    /// ```
     fn ABX(cpu: &mut CPU, bus: &mut Bus) -> u8 {
         let lo: u32 = bus.read(cpu.pc as u16, false).into();
         cpu.pc += 1;
@@ -1883,6 +2078,43 @@ impl M6502AddrModes for CPU {
         };
     }
 
+    /// Absolute Indexed with Y Register Addressing (ABY)
+    ///
+    /// The `ABY` addressing mode is used to load a 16-bit absolute memory address
+    /// from two consecutive bytes in memory, add the value in the Y register to it,
+    /// and store the result in the CPU's `abs` register. This addressing mode is often
+    /// used for indexed memory access with the Y register.
+    ///
+    /// Flags affected: None
+    ///
+    /// # Arguments
+    ///
+    /// * `cpu` - A mutable reference to the [`CPU`] representing the MOS 6502 CPU.
+    /// * `bus` - A mutable reference to the system [`Bus`] for memory access.
+    ///
+    /// # Returns
+    ///
+    /// This function returns the number of clock cycles used by the instruction, which is 1 if a page boundary is crossed, otherwise 0.
+    ///
+    /// # Example
+    ///
+    /// ```rust no_run
+    /// // Example usage of the ABY addressing mode
+    /// let mut cpu = CPU::new();
+    /// let mut bus = Bus::new();
+    ///
+    /// // Set the memory content at a specific address
+    /// bus.write(0x8000, 0x12); // LSB
+    /// bus.write(0x8001, 0x34); // MSB
+    ///
+    /// cpu.pc = 0x8000; // Set the program counter to the address of the ABY instruction
+    /// cpu.y = 0x10; // Set the Y register
+    /// ABY(&mut cpu, &mut bus); // Execute the ABY instruction
+    ///
+    /// // The `abs` register in the `cpu` will now hold the value 0x3422 (little-endian)
+    /// // since Y was added to the absolute address.
+    /// ```
+
     fn ABY(cpu: &mut CPU, bus: &mut Bus) -> u8 {
         let lo: u16 = bus.read(cpu.pc as u16, false).into();
         cpu.pc += 1;
@@ -1897,6 +2129,40 @@ impl M6502AddrModes for CPU {
             0x00
         };
     }
+
+    /// Relative Addressing (REL)
+    ///
+    /// The `REL` addressing mode is used for branch instructions, which involve a signed
+    /// 8-bit offset relative to the current program counter (PC). This offset is read from
+    /// memory, sign-extended to 16 bits, and stored in the CPU's `rel` register. It is used
+    /// to determine the destination address for branching.
+    ///
+    /// Flags affected: None
+    ///
+    /// # Arguments
+    ///
+    /// * `cpu` - A mutable reference to the [`CPU`] representing the MOS 6502 CPU.
+    /// * `bus` - A mutable reference to the system [`Bus`] for memory access.
+    ///
+    /// # Returns
+    ///
+    /// This function returns 0, as it does not affect clock cycles or execution time.
+    ///
+    /// # Example
+    ///
+    /// ```rust no_run
+    /// // Example usage of the REL addressing mode for branching
+    /// let mut cpu = CPU::new();
+    /// let mut bus = Bus::new();
+    ///
+    /// // Set the memory content at a specific address with a relative offset
+    /// bus.write(0x8000, 0x10); // Relative offset of +16 (positive)
+    ///
+    /// cpu.pc = 0x8000; // Set the program counter to the address of the REL instruction
+    /// REL(&mut cpu, &mut bus); // Execute the REL instruction
+    ///
+    /// // The `rel` register in the `cpu` will now hold the value 16 (sign-extended).
+    /// ```
 
     fn REL(cpu: &mut CPU, bus: &mut Bus) -> u8 {
         cpu.rel = bus.read(cpu.pc, false) as u16;
