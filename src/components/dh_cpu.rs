@@ -25,7 +25,7 @@ use super::{HIGH_BYTE, LOOKUP_TABLE, LOW_BYTE, TOP_BIT_THRESH};
 /// * `opcode` - Is the instruction byte
 /// * `cycles` - Counts how many cycles the instruction has remaining
 /// * `clock_count` - A global accumulation of the number of clocks
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct CPU {
     // cpu Core registers, exposed as public here for ease of access from external
     // examinors. This is all the 6502 has.
@@ -2114,7 +2114,6 @@ impl M6502AddrModes for CPU {
     /// // The `abs` register in the `cpu` will now hold the value 0x3422 (little-endian)
     /// // since Y was added to the absolute address.
     /// ```
-
     fn ABY(cpu: &mut CPU, bus: &mut Bus) -> u8 {
         let lo: u16 = bus.read(cpu.pc as u16, false).into();
         cpu.pc += 1;
@@ -2163,7 +2162,6 @@ impl M6502AddrModes for CPU {
     ///
     /// // The `rel` register in the `cpu` will now hold the value 16 (sign-extended).
     /// ```
-
     fn REL(cpu: &mut CPU, bus: &mut Bus) -> u8 {
         cpu.rel = bus.read(cpu.pc, false) as u16;
         cpu.pc += 1;
