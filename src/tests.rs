@@ -104,7 +104,9 @@ fn test_mini_program() {
     CPU::reset(&mut cpu, &bus);
     bus.load_instruction_mem(ttape);
     cpu.set_cycles(0);
-    let disasm = CPU::disassemble(&mut bus, START, STOP);
+
+    let disasm: std::collections::HashMap<u16, String> =
+        CPU::disassemble(&mut bus, START, STOP);
 
     dbg!(disasm);
 }

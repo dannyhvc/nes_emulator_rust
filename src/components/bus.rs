@@ -47,35 +47,25 @@ impl Bus {
 
     #[cfg(feature = "debug")]
     pub fn load_instruction_mem(&mut self, data: Box<[Box<[u16]>]>) {
-        // we subtract 1 because we want to exclude the instruction location by default
-
+        // go through each instruction
         for ins in data.iter() {
-            let current_instruction: &[u16] = ins.iter().as_slice();
-            assert!(current_instruction.len() > 1, "instruction invalid");
+            let instruction_and_operands_bytes: &[u16] = ins.iter().as_slice();
+            let mut address: u16 = instruction_and_operands_bytes[0];
+            let opcode = instruction_and_operands_bytes[1] as u8;
 
-            let ins_addr: u16 = current_instruction[0];
-            let opcode: u8 = current_instruction[1] as u8;
-            self.write(ins_addr, opcode);
+            // first part of the instruction is always the opcode address
+            self.write(address, opcode);
+            // move to the probable first operand
+            address += 1;
 
-            // minus 2 to so that we don't include the address of the instruction or the opcode
-            match current_instruction.len() - 2 {
-                // 1 byte operand
-                2 => {
-                    let operand: u8 = current_instruction[2] as u8;
-                    self.write(ins_addr + 1, operand);
-                }
-
-                // 2 byte operand
-                3 => {
-                    let LSB: u8 = current_instruction[2] as u8;
-                    self.write(ins_addr + 1, LSB);
-                    let MSB: u8 = current_instruction[3] as u8;
-                    self.write(ins_addr + 2, MSB);
-                }
-                _ => panic!(
-                    "Instruction operand length can be either 0,1, or 2 bytes"
-                ),
-            };
+            if instruction_and_operands_bytes.len() > 2 {
+                let operands = &instruction_and_operands_bytes[2..];
+                operands.into_iter().for_each(|operand| {
+                    // write each operand to the resulting incremented address
+                    self.write(address, *operand as u8);
+                    address += 1;
+                });
+            }
         }
     }
 }
