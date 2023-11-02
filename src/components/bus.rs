@@ -19,14 +19,17 @@ impl Bus {
         if addr >= START_OF_RAM && addr <= END_OF_RAM {
             return self.cpu_ram[addr as usize];
         }
+        println!("Memory accessed out of bound: {:?}", addr);
         0x00
     }
 
     #[inline]
     pub fn write(&mut self, addr: u16, data: u8) {
-        if addr >= START_OF_RAM && addr <= END_OF_RAM {
-            self.cpu_ram[addr as usize] = data;
-        }
+        assert!(
+            addr >= START_OF_RAM && addr <= END_OF_RAM,
+            "can't write to address that is out of memory bounds"
+        );
+        self.cpu_ram[addr as usize] = data;
     }
 
     #[inline]
@@ -45,10 +48,6 @@ impl Bus {
     #[cfg(feature = "debug")]
     pub fn load_instruction_mem(&mut self, data: Box<[Box<[u16]>]>) {
         // we subtract 1 because we want to exclude the instruction location by default
-
-        // TODO: keep this for now so we can test dan;s brain
-        use super::types::AddrModeMneumonic;
-        use crate::components::types::OpcodeMneumonic;
 
         for ins in data.iter() {
             let current_instruction: &[u16] = ins.iter().as_slice();
