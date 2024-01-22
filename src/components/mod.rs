@@ -1,276 +1,312 @@
-use self::dh6502::M6502;
-use self::types::M6502AddrModes;
-use self::types::M6502Instruction;
-use self::types::M6502Opcodes;
-
 pub mod bus;
-pub mod clock;
-pub mod dh6502;
+pub mod cartridge;
+pub mod dh_cpu;
+pub mod dh_ppu;
+pub mod mappers;
 pub mod types;
 
-const BOTTOM_OF_RAM: u16 = 0x0000;
-const TOP_OF_RAM: u16 = 0xFFFF;
-const HIGH_BYTE: u16 = 0xFF00;
-const LOW_BYTE: u16 = 0x00FF;
-const TOP_BIT_THRESH: u16 = 0x80;
+use self::dh_cpu::CPU;
+use self::types::AddrModeMneumonic;
+use self::types::CpuInstruction;
+use self::types::M6502AddrModes;
+use self::types::M6502Opcodes;
+use self::types::OpcodeMneumonic;
+use crate::components::types::InstructionMneumonic;
+use once_cell::sync::Lazy;
 
-// 6502 lookup table
-// for logging but may be left alone for now
-const LOOKUP_TABLE: [M6502Instruction; 256] = [
-    M6502Instruction("BRK", M6502::brk, M6502::imm, 7),
-    M6502Instruction("ORA", M6502::ora, M6502::izx, 6),
-    M6502Instruction("???", M6502::xxx, M6502::imp, 2),
-    M6502Instruction("???", M6502::xxx, M6502::imp, 8),
-    M6502Instruction("???", M6502::nop, M6502::imp, 3),
-    M6502Instruction("ORA", M6502::ora, M6502::zp0, 3),
-    M6502Instruction("ASL", M6502::asl, M6502::zp0, 5),
-    M6502Instruction("???", M6502::xxx, M6502::imp, 5),
-    M6502Instruction("PHP", M6502::php, M6502::imp, 3),
-    M6502Instruction("ORA", M6502::ora, M6502::imm, 2),
-    M6502Instruction("ASL", M6502::asl, M6502::imp, 2),
-    M6502Instruction("???", M6502::xxx, M6502::imp, 2),
-    M6502Instruction("???", M6502::nop, M6502::imp, 4),
-    M6502Instruction("ORA", M6502::ora, M6502::abs, 4),
-    M6502Instruction("ASL", M6502::asl, M6502::abs, 6),
-    M6502Instruction("???", M6502::xxx, M6502::imp, 6),
-    M6502Instruction("BPL", M6502::bpl, M6502::rel, 2),
-    M6502Instruction("ORA", M6502::ora, M6502::izy, 5),
-    M6502Instruction("???", M6502::xxx, M6502::imp, 2),
-    M6502Instruction("???", M6502::xxx, M6502::imp, 8),
-    M6502Instruction("???", M6502::nop, M6502::imp, 4),
-    M6502Instruction("ORA", M6502::ora, M6502::zpx, 4),
-    M6502Instruction("ASL", M6502::asl, M6502::zpx, 6),
-    M6502Instruction("???", M6502::xxx, M6502::imp, 6),
-    M6502Instruction("CLC", M6502::clc, M6502::imp, 2),
-    M6502Instruction("ORA", M6502::ora, M6502::aby, 4),
-    M6502Instruction("???", M6502::nop, M6502::imp, 2),
-    M6502Instruction("???", M6502::xxx, M6502::imp, 7),
-    M6502Instruction("???", M6502::nop, M6502::imp, 4),
-    M6502Instruction("ORA", M6502::ora, M6502::abx, 4),
-    M6502Instruction("ASL", M6502::asl, M6502::abx, 7),
-    M6502Instruction("???", M6502::xxx, M6502::imp, 7),
-    M6502Instruction("JSR", M6502::jsr, M6502::abs, 6),
-    M6502Instruction("AND", M6502::and, M6502::izx, 6),
-    M6502Instruction("???", M6502::xxx, M6502::imp, 2),
-    M6502Instruction("???", M6502::xxx, M6502::imp, 8),
-    M6502Instruction("BIT", M6502::bit, M6502::zp0, 3),
-    M6502Instruction("AND", M6502::and, M6502::zp0, 3),
-    M6502Instruction("ROL", M6502::rol, M6502::zp0, 5),
-    M6502Instruction("???", M6502::xxx, M6502::imp, 5),
-    M6502Instruction("PLP", M6502::plp, M6502::imp, 4),
-    M6502Instruction("AND", M6502::and, M6502::imm, 2),
-    M6502Instruction("ROL", M6502::rol, M6502::imp, 2),
-    M6502Instruction("???", M6502::xxx, M6502::imp, 2),
-    M6502Instruction("BIT", M6502::bit, M6502::abs, 4),
-    M6502Instruction("AND", M6502::and, M6502::abs, 4),
-    M6502Instruction("ROL", M6502::rol, M6502::abs, 6),
-    M6502Instruction("???", M6502::xxx, M6502::imp, 6),
-    M6502Instruction("BMI", M6502::bmi, M6502::rel, 2),
-    M6502Instruction("AND", M6502::and, M6502::izy, 5),
-    M6502Instruction("???", M6502::xxx, M6502::imp, 2),
-    M6502Instruction("???", M6502::xxx, M6502::imp, 8),
-    M6502Instruction("???", M6502::nop, M6502::imp, 4),
-    M6502Instruction("AND", M6502::and, M6502::zpx, 4),
-    M6502Instruction("ROL", M6502::rol, M6502::zpx, 6),
-    M6502Instruction("???", M6502::xxx, M6502::imp, 6),
-    M6502Instruction("SEC", M6502::sec, M6502::imp, 2),
-    M6502Instruction("AND", M6502::and, M6502::aby, 4),
-    M6502Instruction("???", M6502::nop, M6502::imp, 2),
-    M6502Instruction("???", M6502::xxx, M6502::imp, 7),
-    M6502Instruction("???", M6502::nop, M6502::imp, 4),
-    M6502Instruction("AND", M6502::and, M6502::abx, 4),
-    M6502Instruction("ROL", M6502::rol, M6502::abx, 7),
-    M6502Instruction("???", M6502::xxx, M6502::imp, 7),
-    M6502Instruction("RTI", M6502::rti, M6502::imp, 6),
-    M6502Instruction("EOR", M6502::eor, M6502::izx, 6),
-    M6502Instruction("???", M6502::xxx, M6502::imp, 2),
-    M6502Instruction("???", M6502::xxx, M6502::imp, 8),
-    M6502Instruction("???", M6502::nop, M6502::imp, 3),
-    M6502Instruction("EOR", M6502::eor, M6502::zp0, 3),
-    M6502Instruction("LSR", M6502::lsr, M6502::zp0, 5),
-    M6502Instruction("???", M6502::xxx, M6502::imp, 5),
-    M6502Instruction("PHA", M6502::pha, M6502::imp, 3),
-    M6502Instruction("EOR", M6502::eor, M6502::imm, 2),
-    M6502Instruction("LSR", M6502::lsr, M6502::imp, 2),
-    M6502Instruction("???", M6502::xxx, M6502::imp, 2),
-    M6502Instruction("JMP", M6502::jmp, M6502::abs, 3),
-    M6502Instruction("EOR", M6502::eor, M6502::abs, 4),
-    M6502Instruction("LSR", M6502::lsr, M6502::abs, 6),
-    M6502Instruction("???", M6502::xxx, M6502::imp, 6),
-    M6502Instruction("BVC", M6502::bvc, M6502::rel, 2),
-    M6502Instruction("EOR", M6502::eor, M6502::izy, 5),
-    M6502Instruction("???", M6502::xxx, M6502::imp, 2),
-    M6502Instruction("???", M6502::xxx, M6502::imp, 8),
-    M6502Instruction("???", M6502::nop, M6502::imp, 4),
-    M6502Instruction("EOR", M6502::eor, M6502::zpx, 4),
-    M6502Instruction("LSR", M6502::lsr, M6502::zpx, 6),
-    M6502Instruction("???", M6502::xxx, M6502::imp, 6),
-    M6502Instruction("CLI", M6502::cli, M6502::imp, 2),
-    M6502Instruction("EOR", M6502::eor, M6502::aby, 4),
-    M6502Instruction("???", M6502::nop, M6502::imp, 2),
-    M6502Instruction("???", M6502::xxx, M6502::imp, 7),
-    M6502Instruction("???", M6502::nop, M6502::imp, 4),
-    M6502Instruction("EOR", M6502::eor, M6502::abx, 4),
-    M6502Instruction("LSR", M6502::lsr, M6502::abx, 7),
-    M6502Instruction("???", M6502::xxx, M6502::imp, 7),
-    M6502Instruction("RTS", M6502::rts, M6502::imp, 6),
-    M6502Instruction("ADC", M6502::adc, M6502::izx, 6),
-    M6502Instruction("???", M6502::xxx, M6502::imp, 2),
-    M6502Instruction("???", M6502::xxx, M6502::imp, 8),
-    M6502Instruction("???", M6502::nop, M6502::imp, 3),
-    M6502Instruction("ADC", M6502::adc, M6502::zp0, 3),
-    M6502Instruction("ROR", M6502::ror, M6502::zp0, 5),
-    M6502Instruction("???", M6502::xxx, M6502::imp, 5),
-    M6502Instruction("PLA", M6502::pla, M6502::imp, 4),
-    M6502Instruction("ADC", M6502::adc, M6502::imm, 2),
-    M6502Instruction("ROR", M6502::ror, M6502::imp, 2),
-    M6502Instruction("???", M6502::xxx, M6502::imp, 2),
-    M6502Instruction("JMP", M6502::jmp, M6502::ind, 5),
-    M6502Instruction("ADC", M6502::adc, M6502::abs, 4),
-    M6502Instruction("ROR", M6502::ror, M6502::abs, 6),
-    M6502Instruction("???", M6502::xxx, M6502::imp, 6),
-    M6502Instruction("BVS", M6502::bvs, M6502::rel, 2),
-    M6502Instruction("ADC", M6502::adc, M6502::izy, 5),
-    M6502Instruction("???", M6502::xxx, M6502::imp, 2),
-    M6502Instruction("???", M6502::xxx, M6502::imp, 8),
-    M6502Instruction("???", M6502::nop, M6502::imp, 4),
-    M6502Instruction("ADC", M6502::adc, M6502::zpx, 4),
-    M6502Instruction("ROR", M6502::ror, M6502::zpx, 6),
-    M6502Instruction("???", M6502::xxx, M6502::imp, 6),
-    M6502Instruction("SEI", M6502::sei, M6502::imp, 2),
-    M6502Instruction("ADC", M6502::adc, M6502::aby, 4),
-    M6502Instruction("???", M6502::nop, M6502::imp, 2),
-    M6502Instruction("???", M6502::xxx, M6502::imp, 7),
-    M6502Instruction("???", M6502::nop, M6502::imp, 4),
-    M6502Instruction("ADC", M6502::adc, M6502::abx, 4),
-    M6502Instruction("ROR", M6502::ror, M6502::abx, 7),
-    M6502Instruction("???", M6502::xxx, M6502::imp, 7),
-    M6502Instruction("???", M6502::nop, M6502::imp, 2),
-    M6502Instruction("STA", M6502::sta, M6502::izx, 6),
-    M6502Instruction("???", M6502::nop, M6502::imp, 2),
-    M6502Instruction("???", M6502::xxx, M6502::imp, 6),
-    M6502Instruction("STY", M6502::sty, M6502::zp0, 3),
-    M6502Instruction("STA", M6502::sta, M6502::zp0, 3),
-    M6502Instruction("STX", M6502::stx, M6502::zp0, 3),
-    M6502Instruction("???", M6502::xxx, M6502::imp, 3),
-    M6502Instruction("DEY", M6502::dey, M6502::imp, 2),
-    M6502Instruction("???", M6502::nop, M6502::imp, 2),
-    M6502Instruction("TXA", M6502::txa, M6502::imp, 2),
-    M6502Instruction("???", M6502::xxx, M6502::imp, 2),
-    M6502Instruction("STY", M6502::sty, M6502::abs, 4),
-    M6502Instruction("STA", M6502::sta, M6502::abs, 4),
-    M6502Instruction("STX", M6502::stx, M6502::abs, 4),
-    M6502Instruction("???", M6502::xxx, M6502::imp, 4),
-    M6502Instruction("BCC", M6502::bcc, M6502::rel, 2),
-    M6502Instruction("STA", M6502::sta, M6502::izy, 6),
-    M6502Instruction("???", M6502::xxx, M6502::imp, 2),
-    M6502Instruction("???", M6502::xxx, M6502::imp, 6),
-    M6502Instruction("STY", M6502::sty, M6502::zpx, 4),
-    M6502Instruction("STA", M6502::sta, M6502::zpx, 4),
-    M6502Instruction("STX", M6502::stx, M6502::zpy, 4),
-    M6502Instruction("???", M6502::xxx, M6502::imp, 4),
-    M6502Instruction("TYA", M6502::tya, M6502::imp, 2),
-    M6502Instruction("STA", M6502::sta, M6502::aby, 5),
-    M6502Instruction("TXS", M6502::txs, M6502::imp, 2),
-    M6502Instruction("???", M6502::xxx, M6502::imp, 5),
-    M6502Instruction("???", M6502::nop, M6502::imp, 5),
-    M6502Instruction("STA", M6502::sta, M6502::abx, 5),
-    M6502Instruction("???", M6502::xxx, M6502::imp, 5),
-    M6502Instruction("???", M6502::xxx, M6502::imp, 5),
-    M6502Instruction("LDY", M6502::ldy, M6502::imm, 2),
-    M6502Instruction("LDA", M6502::lda, M6502::izx, 6),
-    M6502Instruction("LDX", M6502::ldx, M6502::imm, 2),
-    M6502Instruction("???", M6502::xxx, M6502::imp, 6),
-    M6502Instruction("LDY", M6502::ldy, M6502::zp0, 3),
-    M6502Instruction("LDA", M6502::lda, M6502::zp0, 3),
-    M6502Instruction("LDX", M6502::ldx, M6502::zp0, 3),
-    M6502Instruction("???", M6502::xxx, M6502::imp, 3),
-    M6502Instruction("TAY", M6502::tay, M6502::imp, 2),
-    M6502Instruction("LDA", M6502::lda, M6502::imm, 2),
-    M6502Instruction("TAX", M6502::tax, M6502::imp, 2),
-    M6502Instruction("???", M6502::xxx, M6502::imp, 2),
-    M6502Instruction("LDY", M6502::ldy, M6502::abs, 4),
-    M6502Instruction("LDA", M6502::lda, M6502::abs, 4),
-    M6502Instruction("LDX", M6502::ldx, M6502::abs, 4),
-    M6502Instruction("???", M6502::xxx, M6502::imp, 4),
-    M6502Instruction("BCS", M6502::bcs, M6502::rel, 2),
-    M6502Instruction("LDA", M6502::lda, M6502::izy, 5),
-    M6502Instruction("???", M6502::xxx, M6502::imp, 2),
-    M6502Instruction("???", M6502::xxx, M6502::imp, 5),
-    M6502Instruction("LDY", M6502::ldy, M6502::zpx, 4),
-    M6502Instruction("LDA", M6502::lda, M6502::zpx, 4),
-    M6502Instruction("LDX", M6502::ldx, M6502::zpy, 4),
-    M6502Instruction("???", M6502::xxx, M6502::imp, 4),
-    M6502Instruction("CLV", M6502::clv, M6502::imp, 2),
-    M6502Instruction("LDA", M6502::lda, M6502::aby, 4),
-    M6502Instruction("TSX", M6502::tsx, M6502::imp, 2),
-    M6502Instruction("???", M6502::xxx, M6502::imp, 4),
-    M6502Instruction("LDY", M6502::ldy, M6502::abx, 4),
-    M6502Instruction("LDA", M6502::lda, M6502::abx, 4),
-    M6502Instruction("LDX", M6502::ldx, M6502::aby, 4),
-    M6502Instruction("???", M6502::xxx, M6502::imp, 4),
-    M6502Instruction("CPY", M6502::cpy, M6502::imm, 2),
-    M6502Instruction("CMP", M6502::cmp, M6502::izx, 6),
-    M6502Instruction("???", M6502::nop, M6502::imp, 2),
-    M6502Instruction("???", M6502::xxx, M6502::imp, 8),
-    M6502Instruction("CPY", M6502::cpy, M6502::zp0, 3),
-    M6502Instruction("CMP", M6502::cmp, M6502::zp0, 3),
-    M6502Instruction("DEC", M6502::dec, M6502::zp0, 5),
-    M6502Instruction("???", M6502::xxx, M6502::imp, 5),
-    M6502Instruction("INY", M6502::iny, M6502::imp, 2),
-    M6502Instruction("CMP", M6502::cmp, M6502::imm, 2),
-    M6502Instruction("DEX", M6502::dex, M6502::imp, 2),
-    M6502Instruction("???", M6502::xxx, M6502::imp, 2),
-    M6502Instruction("CPY", M6502::cpy, M6502::abs, 4),
-    M6502Instruction("CMP", M6502::cmp, M6502::abs, 4),
-    M6502Instruction("DEC", M6502::dec, M6502::abs, 6),
-    M6502Instruction("???", M6502::xxx, M6502::imp, 6),
-    M6502Instruction("BNE", M6502::bne, M6502::rel, 2),
-    M6502Instruction("CMP", M6502::cmp, M6502::izy, 5),
-    M6502Instruction("???", M6502::xxx, M6502::imp, 2),
-    M6502Instruction("???", M6502::xxx, M6502::imp, 8),
-    M6502Instruction("???", M6502::nop, M6502::imp, 4),
-    M6502Instruction("CMP", M6502::cmp, M6502::zpx, 4),
-    M6502Instruction("DEC", M6502::dec, M6502::zpx, 6),
-    M6502Instruction("???", M6502::xxx, M6502::imp, 6),
-    M6502Instruction("CLD", M6502::cld, M6502::imp, 2),
-    M6502Instruction("CMP", M6502::cmp, M6502::aby, 4),
-    M6502Instruction("NOP", M6502::nop, M6502::imp, 2),
-    M6502Instruction("???", M6502::xxx, M6502::imp, 7),
-    M6502Instruction("???", M6502::nop, M6502::imp, 4),
-    M6502Instruction("CMP", M6502::cmp, M6502::abx, 4),
-    M6502Instruction("DEC", M6502::dec, M6502::abx, 7),
-    M6502Instruction("???", M6502::xxx, M6502::imp, 7),
-    M6502Instruction("CPX", M6502::cpx, M6502::imm, 2),
-    M6502Instruction("SBC", M6502::sbc, M6502::izx, 6),
-    M6502Instruction("???", M6502::nop, M6502::imp, 2),
-    M6502Instruction("???", M6502::xxx, M6502::imp, 8),
-    M6502Instruction("CPX", M6502::cpx, M6502::zp0, 3),
-    M6502Instruction("SBC", M6502::sbc, M6502::zp0, 3),
-    M6502Instruction("INC", M6502::inc, M6502::zp0, 5),
-    M6502Instruction("???", M6502::xxx, M6502::imp, 5),
-    M6502Instruction("INX", M6502::inx, M6502::imp, 2),
-    M6502Instruction("SBC", M6502::sbc, M6502::imm, 2),
-    M6502Instruction("NOP", M6502::nop, M6502::imp, 2),
-    M6502Instruction("???", M6502::sbc, M6502::imp, 2),
-    M6502Instruction("CPX", M6502::cpx, M6502::abs, 4),
-    M6502Instruction("SBC", M6502::sbc, M6502::abs, 4),
-    M6502Instruction("INC", M6502::inc, M6502::abs, 6),
-    M6502Instruction("???", M6502::xxx, M6502::imp, 6),
-    M6502Instruction("BEQ", M6502::beq, M6502::rel, 2),
-    M6502Instruction("SBC", M6502::sbc, M6502::izy, 5),
-    M6502Instruction("???", M6502::xxx, M6502::imp, 2),
-    M6502Instruction("???", M6502::xxx, M6502::imp, 8),
-    M6502Instruction("???", M6502::nop, M6502::imp, 4),
-    M6502Instruction("SBC", M6502::sbc, M6502::zpx, 4),
-    M6502Instruction("INC", M6502::inc, M6502::zpx, 6),
-    M6502Instruction("???", M6502::xxx, M6502::imp, 6),
-    M6502Instruction("SED", M6502::sed, M6502::imp, 2),
-    M6502Instruction("SBC", M6502::sbc, M6502::aby, 4),
-    M6502Instruction("NOP", M6502::nop, M6502::imp, 2),
-    M6502Instruction("???", M6502::xxx, M6502::imp, 7),
-    M6502Instruction("???", M6502::nop, M6502::imp, 4),
-    M6502Instruction("SBC", M6502::sbc, M6502::abx, 4),
-    M6502Instruction("INC", M6502::inc, M6502::abx, 7),
-    M6502Instruction("???", M6502::xxx, M6502::imp, 7),
-];
+const START_OF_RAM: u16 = 0x0000;
+const END_OF_RAM: u16 = 0xFFFF;
+const LOW_BYTE: u16 = 0x00FF;
+const HIGH_BYTE: u16 = 0xFF00;
+const TOP_BIT_THRESH: u16 = 0x0080;
+
+#[allow(non_snake_case)]
+#[inline(always)]
+pub const fn KB(n: u32) -> usize {
+    const SIZEOF_1KB: u32 = 1024;
+    return (n * SIZEOF_1KB) as usize;
+}
+
+macro_rules! imneumonic {
+    ($op_code_ident: ident, $am_name: ident) => {
+        InstructionMneumonic::new(
+            stringify!($op_code_ident),
+            OpcodeMneumonic::$op_code_ident,
+            AddrModeMneumonic::$am_name,
+        )
+    };
+}
+
+macro_rules! cins {
+    ($op_code_ident:ident $am_name:ident $cycles:literal) => {
+        CpuInstruction {
+            mneumonic: imneumonic!($op_code_ident, $am_name),
+            op_code: CPU::$op_code_ident,
+            addr_mode: CPU::$am_name,
+            cycles: $cycles,
+        }
+    };
+}
+
+// mos 6502 lookup table
+static LOOKUP_TABLE: Lazy<[CpuInstruction; 256]> = Lazy::new(|| {
+    [
+        //    OP  AD  C
+        cins!(BRK IMM 7), // CINS{mneumonic: imneumonic!(BRK,IMM), op: M6502::BRK, am: M6502::IMM, cycles: 7},
+        cins!(ORA IZX 6),
+        cins!(XXX IMP 2), // illegal opcode
+        cins!(XXX IMP 8), // illegal opcode
+        cins!(NOP IMP 3),
+        cins!(ORA ZP0 3),
+        cins!(ASL ZP0 5),
+        cins!(XXX IMP 5), // illegal opcode
+        cins!(PHP IMP 3),
+        cins!(ORA IMM 2),
+        cins!(ASL IMP 2),
+        cins!(XXX IMP 2), // illegal opcode
+        cins!(NOP IMP 4),
+        cins!(ORA ABS 4),
+        cins!(ASL ABS 6),
+        cins!(XXX IMP 6), // illegal opcode
+        cins!(BPL REL 2),
+        cins!(ORA IZY 5),
+        cins!(XXX IMP 2), // illegal opcode
+        cins!(XXX IMP 8), // illegal opcode
+        cins!(NOP IMP 4),
+        cins!(ORA ZPX 4),
+        cins!(ASL ZPX 6),
+        cins!(XXX IMP 6), // illegal opcode
+        cins!(CLC IMP 2),
+        cins!(ORA ABY 4),
+        cins!(NOP IMP 2),
+        cins!(XXX IMP 7), // illegal opcode
+        cins!(NOP IMP 4),
+        cins!(ORA ABX 4),
+        cins!(ASL ABX 7),
+        cins!(XXX IMP 7), // illegal opcode
+        cins!(JSR ABS 6),
+        cins!(AND IZX 6),
+        cins!(XXX IMP 2), // illegal opcode
+        cins!(XXX IMP 8), // illegal opcode
+        cins!(BIT ZP0 3),
+        cins!(AND ZP0 3),
+        cins!(ROL ZP0 5),
+        cins!(XXX IMP 5), // illegal opcode
+        cins!(PLP IMP 4),
+        cins!(AND IMM 2),
+        cins!(ROL IMP 2),
+        cins!(XXX IMP 2), // illegal opcode
+        cins!(BIT ABS 4),
+        cins!(AND ABS 4),
+        cins!(ROL ABS 6),
+        cins!(XXX IMP 6), // illegal opcode
+        cins!(BMI REL 2),
+        cins!(AND IZY 5),
+        cins!(XXX IMP 2), // illegal opcode
+        cins!(XXX IMP 8), // illegal opcode
+        cins!(NOP IMP 4),
+        cins!(AND ZPX 4),
+        cins!(ROL ZPX 6),
+        cins!(XXX IMP 6), // illegal opcode
+        cins!(SEC IMP 2),
+        cins!(AND ABY 4),
+        cins!(NOP IMP 2),
+        cins!(XXX IMP 7), // illegal opcode
+        cins!(NOP IMP 4),
+        cins!(AND ABX 4),
+        cins!(ROL ABX 7),
+        cins!(XXX IMP 7), // illegal opcode
+        cins!(RTI IMP 6),
+        cins!(EOR IZX 6),
+        cins!(XXX IMP 2), // illegal opcode
+        cins!(XXX IMP 8), // illegal opcode
+        cins!(NOP IMP 3),
+        cins!(EOR ZP0 3),
+        cins!(LSR ZP0 5),
+        cins!(XXX IMP 5), // illegal opcode
+        cins!(PHA IMP 3),
+        cins!(EOR IMM 2),
+        cins!(LSR IMP 2),
+        cins!(XXX IMP 2), // illegal opcode
+        cins!(JMP ABS 3),
+        cins!(EOR ABS 4),
+        cins!(LSR ABS 6),
+        cins!(XXX IMP 6), // illegal opcode
+        cins!(BVC REL 2),
+        cins!(EOR IZY 5),
+        cins!(XXX IMP 2), // illegal opcode
+        cins!(XXX IMP 8), // illegal opcode
+        cins!(NOP IMP 4),
+        cins!(EOR ZPX 4),
+        cins!(LSR ZPX 6),
+        cins!(XXX IMP 6), // illegal opcode
+        cins!(CLI IMP 2),
+        cins!(EOR ABY 4),
+        cins!(NOP IMP 2),
+        cins!(XXX IMP 7), // illegal opcode
+        cins!(NOP IMP 4),
+        cins!(EOR ABX 4),
+        cins!(LSR ABX 7),
+        cins!(XXX IMP 7), // illegal opcode
+        cins!(RTS IMP 6),
+        cins!(ADC IZX 6),
+        cins!(XXX IMP 2), // illegal opcode
+        cins!(XXX IMP 8), // illegal opcode
+        cins!(NOP IMP 3),
+        cins!(ADC ZP0 3),
+        cins!(ROR ZP0 5),
+        cins!(XXX IMP 5), // illegal opcode
+        cins!(PLA IMP 4),
+        cins!(ADC IMM 2),
+        cins!(ROR IMP 2),
+        cins!(XXX IMP 2), // illegal opcode
+        cins!(JMP IND 5),
+        cins!(ADC ABS 4),
+        cins!(ROR ABS 6),
+        cins!(XXX IMP 6), // illegal opcode
+        cins!(BVS REL 2),
+        cins!(ADC IZY 5),
+        cins!(XXX IMP 2), // illegal opcode
+        cins!(XXX IMP 8), // illegal opcode
+        cins!(NOP IMP 4),
+        cins!(ADC ZPX 4),
+        cins!(ROR ZPX 6),
+        cins!(XXX IMP 6), // illegal opcode
+        cins!(SEI IMP 2),
+        cins!(ADC ABY 4),
+        cins!(NOP IMP 2),
+        cins!(XXX IMP 7), // illegal opcode
+        cins!(NOP IMP 4),
+        cins!(ADC ABX 4),
+        cins!(ROR ABX 7),
+        cins!(XXX IMP 7), // illegal opcode
+        cins!(NOP IMP 2),
+        cins!(STA IZX 6),
+        cins!(NOP IMP 2),
+        cins!(XXX IMP 6), // illegal opcode
+        cins!(STY ZP0 3),
+        cins!(STA ZP0 3),
+        cins!(STX ZP0 3),
+        cins!(XXX IMP 3), // illegal opcode
+        cins!(DEY IMP 2),
+        cins!(NOP IMP 2),
+        cins!(TXA IMP 2),
+        cins!(XXX IMP 2), // illegal opcode
+        cins!(STY ABS 4),
+        cins!(STA ABS 4),
+        cins!(STX ABS 4),
+        cins!(XXX IMP 4), // illegal opcode
+        cins!(BCC REL 2),
+        cins!(STA IZY 6),
+        cins!(XXX IMP 2), // illegal opcode
+        cins!(XXX IMP 6), // illegal opcode
+        cins!(STY ZPX 4),
+        cins!(STA ZPX 4),
+        cins!(STX ZPY 4),
+        cins!(XXX IMP 4), // illegal opcode
+        cins!(TYA IMP 2),
+        cins!(STA ABY 5),
+        cins!(TXS IMP 2),
+        cins!(XXX IMP 5), // illegal opcode
+        cins!(NOP IMP 5),
+        cins!(STA ABX 5),
+        cins!(XXX IMP 5), // illegal opcode
+        cins!(XXX IMP 5), // illegal opcode
+        cins!(LDY IMM 2),
+        cins!(LDA IZX 6),
+        cins!(LDX IMM 2),
+        cins!(XXX IMP 6), // illegal opcode
+        cins!(LDY ZP0 3),
+        cins!(LDA ZP0 3),
+        cins!(LDX ZP0 3),
+        cins!(XXX IMP 3), // illegal opcode
+        cins!(TAY IMP 2),
+        cins!(LDA IMM 2),
+        cins!(TAX IMP 2),
+        cins!(XXX IMP 2), // illegal opcode
+        cins!(LDY ABS 4),
+        cins!(LDA ABS 4),
+        cins!(LDX ABS 4),
+        cins!(XXX IMP 4), // illegal opcode
+        cins!(BCS REL 2),
+        cins!(LDA IZY 5),
+        cins!(XXX IMP 2), // illegal opcode
+        cins!(XXX IMP 5), // illegal opcode
+        cins!(LDY ZPX 4),
+        cins!(LDA ZPX 4),
+        cins!(LDX ZPY 4),
+        cins!(XXX IMP 4), // illegal opcode
+        cins!(CLV IMP 2),
+        cins!(LDA ABY 4),
+        cins!(TSX IMP 2),
+        cins!(XXX IMP 4), // illegal opcode
+        cins!(LDY ABX 4),
+        cins!(LDA ABX 4),
+        cins!(LDX ABY 4),
+        cins!(XXX IMP 4), // illegal opcode
+        cins!(CPY IMM 2),
+        cins!(CMP IZX 6),
+        cins!(NOP IMP 2),
+        cins!(XXX IMP 8), // illegal opcode
+        cins!(CPY ZP0 3),
+        cins!(CMP ZP0 3),
+        cins!(DEC ZP0 5),
+        cins!(XXX IMP 5), // illegal opcode
+        cins!(INY IMP 2),
+        cins!(CMP IMM 2),
+        cins!(DEX IMP 2),
+        cins!(XXX IMP 2), // illegal opcode
+        cins!(CPY ABS 4),
+        cins!(CMP ABS 4),
+        cins!(DEC ABS 6),
+        cins!(XXX IMP 6), // illegal opcode
+        cins!(BNE REL 2),
+        cins!(CMP IZY 5),
+        cins!(XXX IMP 2), // illegal opcode
+        cins!(XXX IMP 8), // illegal opcode
+        cins!(NOP IMP 4),
+        cins!(CMP ZPX 4),
+        cins!(DEC ZPX 6),
+        cins!(XXX IMP 6), // illegal opcode
+        cins!(CLD IMP 2),
+        cins!(CMP ABY 4),
+        cins!(NOP IMP 2),
+        cins!(XXX IMP 7), // illegal opcode
+        cins!(NOP IMP 4),
+        cins!(CMP ABX 4),
+        cins!(DEC ABX 7),
+        cins!(XXX IMP 7), // illegal opcode
+        cins!(CPX IMM 2),
+        cins!(SBC IZX 6),
+        cins!(NOP IMP 2),
+        cins!(XXX IMP 8), // illegal opcode
+        cins!(CPX ZP0 3),
+        cins!(SBC ZP0 3),
+        cins!(INC ZP0 5),
+        cins!(XXX IMP 5), // illegal opcode
+        cins!(INX IMP 2),
+        cins!(SBC IMM 2),
+        cins!(NOP IMP 2),
+        cins!(SBC IMP 2),
+        cins!(CPX ABS 4),
+        cins!(SBC ABS 4),
+        cins!(INC ABS 6),
+        cins!(XXX IMP 6), // illegal opcode
+        cins!(BEQ REL 2),
+        cins!(SBC IZY 5),
+        cins!(XXX IMP 2), // illegal opcode
+        cins!(XXX IMP 8), // illegal opcode
+        cins!(NOP IMP 4),
+        cins!(SBC ZPX 4),
+        cins!(INC ZPX 6),
+        cins!(XXX IMP 6), // illegal opcode
+        cins!(SED IMP 2),
+        cins!(SBC ABY 4),
+        cins!(NOP IMP 2),
+        cins!(XXX IMP 7), // illegal opcode
+        cins!(NOP IMP 4),
+        cins!(SBC ABX 4),
+        cins!(INC ABX 7),
+        cins!(XXX IMP 7), // illegal opcode
+    ]
+});

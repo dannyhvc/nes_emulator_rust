@@ -1,33 +1,33 @@
-use super::{bus::Bus, dh6502::M6502};
-use custom_error::custom_error;
-use std::{
-    cell::RefCell,
-    rc::Weak,
-};
+#![allow(non_snake_case)]
+use super::{bus::Bus, dh_cpu::CPU};
 
-// TODO: add an actual error call hierarchy
-custom_error! {
-    CriticalCpuError
-    Bad      = "Something bad happened",
-    Terrible = "This is a very serious error!!!"
-}
-
-/* Weak refrence */
-pub type Wref<T> = Weak<RefCell<T>>;
-pub type OWref<T> = Option<Weak<RefCell<T>>>;
-pub type RWref<V, E> = Result<Weak<RefCell<V>>, E>;
-
-#[derive(PartialEq, Eq)]
-pub enum M6502Flags {
+/// ```no_run
+/// E = 0       Empty Default
+/// C = 1 << 0  Carry Bit
+/// Z = 1 << 1  Zero
+/// I = 1 << 2  Disable Interrupts
+/// D = 1 << 3  Decminal Mode
+/// B = 1 << 4  Break
+/// U = 1 << 5  Unused
+/// V = 1 << 6  Overflow
+/// N = 1 << 7  Negative
+/// ```
+#[derive(Debug, PartialEq, Eq)]
+pub enum CpuFlags {
     E = 0,      // Empty default
     C = 1 << 0, // Carry Bit
     Z = 1 << 1, // Zero
     I = 1 << 2, // Disable Interrupts
     D = 1 << 3, // Decimal Mode (unused in this implementation)
     B = 1 << 4, // Break
-    U = 1 << 5, // Unused
+    U = 1 << 5, // UNUSED!!!!!!!!!!!!!
     V = 1 << 6, // Overflow
     N = 1 << 7, // Negative
+}
+impl Default for CpuFlags {
+    fn default() -> Self {
+        Self::E
+    }
 }
 
 /// A struct representing an instruction for the MOS 6502 microprocessor.
@@ -45,100 +45,199 @@ pub enum M6502Flags {
 ///
 /// The `fn(&mut M6502, &mut Bus) -> u8` function pointers are expected to implement the
 /// opcode and addressing mode logic for the instruction, respectively.
+#[derive(Debug)]
+pub struct CpuInstruction {
+    pub mneumonic: InstructionMneumonic,
+    pub op_code: for<'a, 'b> fn(&'a mut CPU, &'b mut Bus) -> u8, // OPCODE
+    pub addr_mode: for<'a, 'b> fn(&'a mut CPU, &'b mut Bus) -> u8, // ADDRESSING MODE
+    pub cycles: u8, // CYCLE COUNT
+}
+
+/// `InstructionMneumonic` is a structure that represents the mnemonic of an instruction.
 ///
-/// # Examples
+/// # Fields
 ///
-/// ```
-/// # use crate::components::M6502;
-/// # use crate::bus::Bus;
-/// # fn example() {
-/// let instruction = M6502Instruction(
-///     "LDA",
-///     M6502::lda,
-///     M6502::imm,
-///     2,
-/// );
-///
-/// assert_eq!(instruction.0, "LDA");
-/// ```
-pub struct M6502Instruction(
-    pub &'static str,
-    pub for<'a, 'b> fn(&'a mut M6502, &'b mut Bus) -> u8, // OPCODE
-    pub for<'a, 'b> fn(&'a mut M6502, &'b mut Bus) -> u8, // ADDRESSING MODE
-    pub u8,                                               // CYCLE COUNT
-);
+/// * `name: &'static str` - This field represents the name of the instruction mnemonic.
+/// * `op_code`: [`OpcodeMneumonic`] - This field represents the opcode of the instruction mnemonic.
+/// * `am_name`: [`AddrModeMneumonic`] - This field represents the addressing mode of the instruction mnemonic.
+#[derive(Debug)]
+pub struct InstructionMneumonic {
+    pub name: &'static str,
+    pub op_code: OpcodeMneumonic,
+    pub am_name: AddrModeMneumonic,
+}
+impl InstructionMneumonic {
+    pub fn new(
+        name: &'static str,
+        op_name: OpcodeMneumonic,
+        am_name: AddrModeMneumonic,
+    ) -> Self {
+        Self {
+            name,
+            op_code: op_name,
+            am_name,
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum OpcodeMneumonic {
+    ADC,
+    AND,
+    ASL,
+    BCC,
+    BCS,
+    BEQ,
+    BIT,
+    BMI,
+    BNE,
+    BPL,
+    BRK,
+    BVC,
+    BVS,
+    CLC,
+    CLD,
+    CLI,
+    CLV,
+    CMP,
+    CPX,
+    CPY,
+    DEC,
+    DEX,
+    DEY,
+    EOR,
+    INC,
+    INX,
+    INY,
+    JMP,
+    JSR,
+    LDA,
+    LDX,
+    LDY,
+    LSR,
+    NOP,
+    ORA,
+    PHA,
+    PHP,
+    PLA,
+    PLP,
+    ROL,
+    ROR,
+    RTI,
+    RTS,
+    SBC,
+    SEC,
+    SED,
+    SEI,
+    STA,
+    STX,
+    STY,
+    TAX,
+    TAY,
+    TSX,
+    TXA,
+    TXS,
+    TYA,
+    XXX,
+}
+impl Default for OpcodeMneumonic {
+    fn default() -> Self {
+        Self::XXX
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum AddrModeMneumonic {
+    IMP,
+    IMM,
+    ZP0,
+    ZPX,
+    ZPY,
+    ABS,
+    ABX,
+    ABY,
+    REL,
+    IND,
+    IZX,
+    IZY,
+}
+impl Default for AddrModeMneumonic {
+    fn default() -> Self {
+        Self::IMP
+    }
+}
 
 pub trait M6502Opcodes {
-    fn adc(cpu: &mut M6502, bus: &mut Bus) -> u8;
-    fn and(cpu: &mut M6502, bus: &mut Bus) -> u8;
-    fn asl(cpu: &mut M6502, bus: &mut Bus) -> u8;
-    fn bcc(cpu: &mut M6502, bus: &mut Bus) -> u8;
-    fn bcs(cpu: &mut M6502, bus: &mut Bus) -> u8;
-    fn beq(cpu: &mut M6502, bus: &mut Bus) -> u8;
-    fn bit(cpu: &mut M6502, bus: &mut Bus) -> u8;
-    fn bmi(cpu: &mut M6502, bus: &mut Bus) -> u8;
-    fn bne(cpu: &mut M6502, bus: &mut Bus) -> u8;
-    fn bpl(cpu: &mut M6502, bus: &mut Bus) -> u8;
-    fn brk(cpu: &mut M6502, bus: &mut Bus) -> u8;
-    fn bvc(cpu: &mut M6502, bus: &mut Bus) -> u8;
-    fn bvs(cpu: &mut M6502, bus: &mut Bus) -> u8;
-    fn clc(cpu: &mut M6502, bus: &mut Bus) -> u8;
-    fn cld(cpu: &mut M6502, bus: &mut Bus) -> u8;
-    fn cli(cpu: &mut M6502, bus: &mut Bus) -> u8;
-    fn clv(cpu: &mut M6502, bus: &mut Bus) -> u8;
-    fn cmp(cpu: &mut M6502, bus: &mut Bus) -> u8;
-    fn cpx(cpu: &mut M6502, bus: &mut Bus) -> u8;
-    fn cpy(cpu: &mut M6502, bus: &mut Bus) -> u8;
-    fn dec(cpu: &mut M6502, bus: &mut Bus) -> u8;
-    fn dex(cpu: &mut M6502, bus: &mut Bus) -> u8;
-    fn dey(cpu: &mut M6502, bus: &mut Bus) -> u8;
-    fn eor(cpu: &mut M6502, bus: &mut Bus) -> u8;
-    fn inc(cpu: &mut M6502, bus: &mut Bus) -> u8;
-    fn inx(cpu: &mut M6502, bus: &mut Bus) -> u8;
-    fn iny(cpu: &mut M6502, bus: &mut Bus) -> u8;
-    fn jmp(cpu: &mut M6502, bus: &mut Bus) -> u8;
-    fn jsr(cpu: &mut M6502, bus: &mut Bus) -> u8;
-    fn lda(cpu: &mut M6502, bus: &mut Bus) -> u8;
-    fn ldx(cpu: &mut M6502, bus: &mut Bus) -> u8;
-    fn ldy(cpu: &mut M6502, bus: &mut Bus) -> u8;
-    fn lsr(cpu: &mut M6502, bus: &mut Bus) -> u8;
-    fn nop(cpu: &mut M6502, bus: &mut Bus) -> u8;
-    fn ora(cpu: &mut M6502, bus: &mut Bus) -> u8;
-    fn pha(cpu: &mut M6502, bus: &mut Bus) -> u8;
-    fn php(cpu: &mut M6502, bus: &mut Bus) -> u8;
-    fn pla(cpu: &mut M6502, bus: &mut Bus) -> u8;
-    fn plp(cpu: &mut M6502, bus: &mut Bus) -> u8;
-    fn rol(cpu: &mut M6502, bus: &mut Bus) -> u8;
-    fn ror(cpu: &mut M6502, bus: &mut Bus) -> u8;
-    fn rti(cpu: &mut M6502, bus: &mut Bus) -> u8;
-    fn rts(cpu: &mut M6502, bus: &mut Bus) -> u8;
-    fn sbc(cpu: &mut M6502, bus: &mut Bus) -> u8;
-    fn sec(cpu: &mut M6502, bus: &mut Bus) -> u8;
-    fn sed(cpu: &mut M6502, bus: &mut Bus) -> u8;
-    fn sei(cpu: &mut M6502, bus: &mut Bus) -> u8;
-    fn sta(cpu: &mut M6502, bus: &mut Bus) -> u8;
-    fn stx(cpu: &mut M6502, bus: &mut Bus) -> u8;
-    fn sty(cpu: &mut M6502, bus: &mut Bus) -> u8;
-    fn tax(cpu: &mut M6502, bus: &mut Bus) -> u8;
-    fn tay(cpu: &mut M6502, bus: &mut Bus) -> u8;
-    fn tsx(cpu: &mut M6502, bus: &mut Bus) -> u8;
-    fn txa(cpu: &mut M6502, bus: &mut Bus) -> u8;
-    fn txs(cpu: &mut M6502, bus: &mut Bus) -> u8;
-    fn tya(cpu: &mut M6502, bus: &mut Bus) -> u8;
-    fn xxx(cpu: &mut M6502, bus: &mut Bus) -> u8;
+    fn ADC(cpu: &mut CPU, bus: &mut Bus) -> u8;
+    fn AND(cpu: &mut CPU, bus: &mut Bus) -> u8;
+    fn ASL(cpu: &mut CPU, bus: &mut Bus) -> u8;
+    fn BCC(cpu: &mut CPU, bus: &mut Bus) -> u8;
+    fn BCS(cpu: &mut CPU, bus: &mut Bus) -> u8;
+    fn BEQ(cpu: &mut CPU, bus: &mut Bus) -> u8;
+    fn BIT(cpu: &mut CPU, bus: &mut Bus) -> u8;
+    fn BMI(cpu: &mut CPU, bus: &mut Bus) -> u8;
+    fn BNE(cpu: &mut CPU, bus: &mut Bus) -> u8;
+    fn BPL(cpu: &mut CPU, bus: &mut Bus) -> u8;
+    fn BRK(cpu: &mut CPU, bus: &mut Bus) -> u8;
+    fn BVC(cpu: &mut CPU, bus: &mut Bus) -> u8;
+    fn BVS(cpu: &mut CPU, bus: &mut Bus) -> u8;
+    fn CLC(cpu: &mut CPU, bus: &mut Bus) -> u8;
+    fn CLD(cpu: &mut CPU, bus: &mut Bus) -> u8;
+    fn CLI(cpu: &mut CPU, bus: &mut Bus) -> u8;
+    fn CLV(cpu: &mut CPU, bus: &mut Bus) -> u8;
+    fn CMP(cpu: &mut CPU, bus: &mut Bus) -> u8;
+    fn CPX(cpu: &mut CPU, bus: &mut Bus) -> u8;
+    fn CPY(cpu: &mut CPU, bus: &mut Bus) -> u8;
+    fn DEC(cpu: &mut CPU, bus: &mut Bus) -> u8;
+    fn DEX(cpu: &mut CPU, bus: &mut Bus) -> u8;
+    fn DEY(cpu: &mut CPU, bus: &mut Bus) -> u8;
+    fn EOR(cpu: &mut CPU, bus: &mut Bus) -> u8;
+    fn INC(cpu: &mut CPU, bus: &mut Bus) -> u8;
+    fn INX(cpu: &mut CPU, bus: &mut Bus) -> u8;
+    fn INY(cpu: &mut CPU, bus: &mut Bus) -> u8;
+    fn JMP(cpu: &mut CPU, bus: &mut Bus) -> u8;
+    fn JSR(cpu: &mut CPU, bus: &mut Bus) -> u8;
+    fn LDA(cpu: &mut CPU, bus: &mut Bus) -> u8;
+    fn LDX(cpu: &mut CPU, bus: &mut Bus) -> u8;
+    fn LDY(cpu: &mut CPU, bus: &mut Bus) -> u8;
+    fn LSR(cpu: &mut CPU, bus: &mut Bus) -> u8;
+    fn NOP(cpu: &mut CPU, bus: &mut Bus) -> u8;
+    fn ORA(cpu: &mut CPU, bus: &mut Bus) -> u8;
+    fn PHA(cpu: &mut CPU, bus: &mut Bus) -> u8;
+    fn PHP(cpu: &mut CPU, bus: &mut Bus) -> u8;
+    fn PLA(cpu: &mut CPU, bus: &mut Bus) -> u8;
+    fn PLP(cpu: &mut CPU, bus: &mut Bus) -> u8;
+    fn ROL(cpu: &mut CPU, bus: &mut Bus) -> u8;
+    fn ROR(cpu: &mut CPU, bus: &mut Bus) -> u8;
+    fn RTI(cpu: &mut CPU, bus: &mut Bus) -> u8;
+    fn RTS(cpu: &mut CPU, bus: &mut Bus) -> u8;
+    fn SBC(cpu: &mut CPU, bus: &mut Bus) -> u8;
+    fn SEC(cpu: &mut CPU, bus: &mut Bus) -> u8;
+    fn SED(cpu: &mut CPU, bus: &mut Bus) -> u8;
+    fn SEI(cpu: &mut CPU, bus: &mut Bus) -> u8;
+    fn STA(cpu: &mut CPU, bus: &mut Bus) -> u8;
+    fn STX(cpu: &mut CPU, bus: &mut Bus) -> u8;
+    fn STY(cpu: &mut CPU, bus: &mut Bus) -> u8;
+    fn TAX(cpu: &mut CPU, bus: &mut Bus) -> u8;
+    fn TAY(cpu: &mut CPU, bus: &mut Bus) -> u8;
+    fn TSX(cpu: &mut CPU, bus: &mut Bus) -> u8;
+    fn TXA(cpu: &mut CPU, bus: &mut Bus) -> u8;
+    fn TXS(cpu: &mut CPU, bus: &mut Bus) -> u8;
+    fn TYA(cpu: &mut CPU, bus: &mut Bus) -> u8;
+    fn XXX(cpu: &mut CPU, bus: &mut Bus) -> u8;
 }
 
 pub trait M6502AddrModes {
-    fn imp(cpu: &mut M6502, bus: &mut Bus) -> u8;
-    fn imm(cpu: &mut M6502, bus: &mut Bus) -> u8;
-    fn zp0(cpu: &mut M6502, bus: &mut Bus) -> u8;
-    fn zpx(cpu: &mut M6502, bus: &mut Bus) -> u8;
-    fn zpy(cpu: &mut M6502, bus: &mut Bus) -> u8;
-    fn abs(cpu: &mut M6502, bus: &mut Bus) -> u8;
-    fn abx(cpu: &mut M6502, bus: &mut Bus) -> u8;
-    fn aby(cpu: &mut M6502, bus: &mut Bus) -> u8;
-    fn rel(cpu: &mut M6502, bus: &mut Bus) -> u8;
-    fn ind(cpu: &mut M6502, bus: &mut Bus) -> u8;
-    fn izx(cpu: &mut M6502, bus: &mut Bus) -> u8;
-    fn izy(cpu: &mut M6502, bus: &mut Bus) -> u8;
+    fn IMP(cpu: &mut CPU, bus: &mut Bus) -> u8;
+    fn IMM(cpu: &mut CPU, bus: &mut Bus) -> u8;
+    fn ZP0(cpu: &mut CPU, bus: &mut Bus) -> u8;
+    fn ZPX(cpu: &mut CPU, bus: &mut Bus) -> u8;
+    fn ZPY(cpu: &mut CPU, bus: &mut Bus) -> u8;
+    fn ABS(cpu: &mut CPU, bus: &mut Bus) -> u8;
+    fn ABX(cpu: &mut CPU, bus: &mut Bus) -> u8;
+    fn ABY(cpu: &mut CPU, bus: &mut Bus) -> u8;
+    fn REL(cpu: &mut CPU, bus: &mut Bus) -> u8;
+    fn IND(cpu: &mut CPU, bus: &mut Bus) -> u8;
+    fn IZX(cpu: &mut CPU, bus: &mut Bus) -> u8;
+    fn IZY(cpu: &mut CPU, bus: &mut Bus) -> u8;
 }
