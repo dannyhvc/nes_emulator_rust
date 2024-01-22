@@ -1,6 +1,6 @@
 # NES Emulator in Rust
 
-This is an NES emulator written in Rust.
+My personal take on a new emulator written in Rust.
 
 ## Features
 
@@ -9,9 +9,9 @@ This is an NES emulator written in Rust.
 - [x] CPU
 - [ ] PPU
 - [ ] APU
-- [ ] Mapper 0
-- [ ] Mapper 1
-- [ ] Mapper 2
+- [x] Mapper 0
+- [x] Mapper 1
+- [x] Mapper 2
 - [ ] Mapper 3
 - [ ] Mapper 4
 - [ ] Mapper 5
