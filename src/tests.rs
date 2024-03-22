@@ -1,69 +1,67 @@
 #![allow(non_snake_case)]
 use crate::{
     bs,
-    components::{
-        self,
-        bus::Bus,
-        dh_cpu::CPU,
-        types::{CpuFlags, CpuInstruction, M6502AddrModes, M6502Opcodes},
-    },
+    components::{bus::Bus, dh_cpu::Cpu},
 };
+use rstest::*;
 
-#[test]
-fn test_clock() {
-    let mut cpu: CPU = CPU::new();
-    let mut bus: Bus = Bus::new();
-    CPU::reset(&mut cpu, &bus);
+#[fixture]
+fn cpu_fix() -> Cpu {
+    Cpu::new()
+}
+
+#[fixture]
+fn bus_fix() -> Bus {
+    Bus::new()
+}
+
+#[rstest]
+fn test_clock(mut cpu_fix: Cpu, mut bus_fix: Bus) {
+    Cpu::reset(&mut cpu_fix, &bus_fix);
     for _ in 0..8 {
-        CPU::clock(&mut cpu, &mut bus);
+        Cpu::clock(&mut cpu_fix, &mut bus_fix);
     }
-    assert!(cpu.cycles() == 0);
+    assert!(cpu_fix.cycles() == 0);
 }
 
-#[test]
-fn test_LDA() {
-    let mut cpu = CPU::new();
-    let mut bus = Bus::new();
+#[rstest]
+fn test_LDA(mut cpu_fix: Cpu, mut bus_fix: Bus) {
+    Cpu::reset(&mut cpu_fix, &bus_fix);
+    cpu_fix.set_cycles(0);
 
-    CPU::reset(&mut cpu, &bus);
-    cpu.set_cycles(0);
+    cpu_fix.set_pc(0xFFFC);
+    bus_fix.write(cpu_fix.pc(), 0xA9); // index 169/LDA/IMM of lookup table
 
-    cpu.set_pc(0xFFFC);
-    bus.write(cpu.pc(), 0xA9); // index 169/LDA/IMM of lookup table
-
-    CPU::clock(&mut cpu, &mut bus);
-    cpu.set_pc(10);
-    CPU::clock(&mut cpu, &mut bus);
-    dbg!(cpu);
+    Cpu::clock(&mut cpu_fix, &mut bus_fix);
+    cpu_fix.set_pc(10);
+    Cpu::clock(&mut cpu_fix, &mut bus_fix);
+    dbg!(cpu_fix);
 }
 
-#[test]
+#[rstest]
 fn test_new() {
-    let _cpu: CPU = CPU::new();
+    let _cpu: Cpu = Cpu::new();
 }
 
-#[test]
-fn test_disassemble() {
-    let mut cpu = CPU::new();
-    let mut bus = Bus::new();
-
+#[rstest]
+fn test_disassemble(mut cpu_fix: Cpu, mut bus_fix: Bus) {
     const START: u16 = 0x0000;
     const STOP: u16 = 0x000f;
 
-    CPU::reset(&mut cpu, &bus);
-    cpu.set_cycles(0);
+    Cpu::reset(&mut cpu_fix, &bus_fix);
+    cpu_fix.set_cycles(0);
 
     for i in START..STOP {
-        bus.write(i, 0xa9); // 169 LDA
-        CPU::clock(&mut cpu, &mut bus);
-        cpu.set_pc(cpu.pc() + 1);
+        bus_fix.write(i, 0xa9); // 169 LDA
+        Cpu::clock(&mut cpu_fix, &mut bus_fix);
+        cpu_fix.set_pc(cpu_fix.pc() + 1);
 
-        CPU::clock(&mut cpu, &mut bus);
+        Cpu::clock(&mut cpu_fix, &mut bus_fix);
 
         // dbg!(cpu.opcode());
     }
 
-    let dis_asm = CPU::disassemble(&mut bus, START, STOP);
+    let dis_asm = Cpu::disassemble(&mut bus_fix, START, STOP);
     dbg!(dis_asm);
 }
 
@@ -75,20 +73,18 @@ fn test_disassemble() {
 /// - `$C00A`  `65` `03`      ;ADC $03   Add the value at memory location $03 to the accumulator
 /// - `$C00C`  `85` `04`      ;STA $04   Store the result in memory location $04
 /// - `$C00E`  `4C` `00` `C0` ;JMP $C000 Jump back to the instruction at memory location $C000
-#[test]
-fn test_mini_program() {
-    let mut cpu = CPU::new();
-    let mut bus = Bus::new();
+#[rstest]
+fn test_mini_program(mut cpu_fix: Cpu, mut bus_fix: Bus) {
     const START: u16 = 0xC000;
     const STOP: u16 = 0xC00E;
 
     // "preloaded" data in ram
-    bus.write(0x00, 0xA);
-    bus.write(0x01, 0x14);
-    bus.write(0x02, 0x1E);
-    bus.write(0x03, 0x28);
+    bus_fix.write(0x00, 0xA);
+    bus_fix.write(0x01, 0x14);
+    bus_fix.write(0x02, 0x1E);
+    bus_fix.write(0x03, 0x28);
 
-    let ttape = bs![
+    let tape = bs![
         //  addr        opc   operand(s)
         bs![0xC000_u16, 0xA5, 0x0],
         bs![0xC002_u16, 0x85, 0x2],
@@ -101,17 +97,15 @@ fn test_mini_program() {
     ];
 
     // is there a better way to do this?
-    CPU::reset(&mut cpu, &bus);
-    bus.load_instruction_mem(ttape);
-    cpu.set_cycles(0);
-
-    let disasm: std::collections::HashMap<u16, String> =
-        CPU::disassemble(&mut bus, START, STOP);
+    Cpu::reset(&mut cpu_fix, &bus_fix);
+    bus_fix.load_instruction_mem(tape);
+    cpu_fix.set_cycles(0);
+    let disasm = Cpu::disassemble(&mut bus_fix, START, STOP);
 
     dbg!(disasm);
 }
 
-#[test]
+#[rstest]
 fn test_gex_fmt() {
     let string_rep: String = format!("#${:x} {{imm}}", 100u8 as u32);
     dbg!(string_rep);

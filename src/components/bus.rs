@@ -1,4 +1,4 @@
-use super::{dh_cpu::CPU, END_OF_RAM, KB, START_OF_RAM};
+use super::{dh_cpu::Cpu, END_OF_RAM, KB, START_OF_RAM};
 
 #[derive(Debug)]
 pub struct Bus {
@@ -33,15 +33,15 @@ impl Bus {
     }
 
     #[inline]
-    pub fn clock(&mut self, cpu: &mut CPU) {
+    pub fn clock(&mut self, cpu: &mut Cpu) {
         if self.sys_clock_counter % 3 == 0 {
-            CPU::reset(cpu, self);
+            Cpu::reset(cpu, self);
         }
         self.sys_clock_counter += 1;
     }
 
-    pub fn reset(&mut self, cpu: &mut CPU) {
-        CPU::reset(cpu, self);
+    pub fn reset(&mut self, cpu: &mut Cpu) {
+        Cpu::reset(cpu, self);
         self.sys_clock_counter = 0;
     }
 

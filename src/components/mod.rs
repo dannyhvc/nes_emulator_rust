@@ -5,7 +5,7 @@ pub mod dh_ppu;
 pub mod mappers;
 pub mod types;
 
-use self::dh_cpu::CPU;
+use self::dh_cpu::Cpu;
 use self::types::AddrModeMneumonic;
 use self::types::CpuInstruction;
 use self::types::M6502AddrModes;
@@ -41,8 +41,8 @@ macro_rules! cins {
     ($op_code_ident:ident $am_name:ident $cycles:literal) => {
         CpuInstruction {
             mneumonic: imneumonic!($op_code_ident, $am_name),
-            op_code: CPU::$op_code_ident,
-            addr_mode: CPU::$am_name,
+            op_code: Cpu::$op_code_ident,
+            addr_mode: Cpu::$am_name,
             cycles: $cycles,
         }
     };
@@ -52,7 +52,7 @@ macro_rules! cins {
 static LOOKUP_TABLE: Lazy<[CpuInstruction; 256]> = Lazy::new(|| {
     [
         //    OP  AD  C
-        cins!(BRK IMM 7), // CINS{mneumonic: imneumonic!(BRK,IMM), op: M6502::BRK, am: M6502::IMM, cycles: 7},
+        cins!(BRK IMM 7), //expands to: CINS{mneumonic: imneumonic!(BRK,IMM), op: M6502::BRK, am: M6502::IMM, cycles: 7},
         cins!(ORA IZX 6),
         cins!(XXX IMP 2), // illegal opcode
         cins!(XXX IMP 8), // illegal opcode
