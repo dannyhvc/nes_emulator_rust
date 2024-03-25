@@ -1,11 +1,4 @@
-use std::{
-    error::Error,
-    io::{stdout, Stdout},
-    ops::ControlFlow,
-    time::Duration,
-};
-
-pub use crossterm::{
+use crossterm::{
     event::{self, Event, KeyCode},
     execute,
     terminal::{
@@ -13,8 +6,15 @@ pub use crossterm::{
         LeaveAlternateScreen,
     },
 };
+use ratatui::widgets::{Block, Borders, Paragraph};
+use std::{
+    error::Error,
+    io::{stdout, Stdout},
+    ops::ControlFlow,
+    time::Duration,
+};
 
-pub use ratatui::{self, prelude::*};
+use ratatui::{self, prelude::*};
 
 // These type aliases are used to make the code more readable by reducing repetition of the generic
 // types. They are not necessary for the functionality of the code.
@@ -47,6 +47,38 @@ pub fn handle_events() -> Result<ControlFlow<()>> {
     Ok(ControlFlow::Continue(()))
 }
 
+fn ui(f: &mut Frame) {
+    let outer_layout = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints(vec![
+            Constraint::Percentage(50),
+            Constraint::Percentage(50),
+        ])
+        .split(f.size());
+
+    let inner_layout = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints(vec![
+            Constraint::Percentage(25),
+            Constraint::Percentage(75),
+        ])
+        .split(outer_layout[1]);
+
+    // testing out the supper simple layout system
+    f.render_widget(
+        Paragraph::new("outter 0").block(Block::new().borders(Borders::ALL)),
+        outer_layout[0],
+    );
+    f.render_widget(
+        Paragraph::new("inner 0").block(Block::new().borders(Borders::ALL)),
+        inner_layout[0],
+    );
+    f.render_widget(
+        Paragraph::new("inner 1").block(Block::new().borders(Borders::ALL)),
+        inner_layout[1],
+    );
+}
+
 pub fn run(terminal: &mut Terminal, ui: fn(&mut Frame)) -> Result<()> {
     loop {
         terminal.draw(ui)?;
@@ -54,4 +86,16 @@ pub fn run(terminal: &mut Terminal, ui: fn(&mut Frame)) -> Result<()> {
             return Ok(());
         }
     }
+}
+
+pub fn start() -> Result<()> {
+    let mut terminal: Terminal = setup_terminal()?;
+
+    let result = run(&mut terminal, ui);
+
+    if let Err(err) = result {
+        eprintln!("{err:?}");
+    }
+
+    restore_terminal(terminal)
 }
