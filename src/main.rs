@@ -5,10 +5,9 @@ mod tests;
 
 mod macros;
 
-mod debugger_util;
+mod debugger;
+use debugger::util::{start, Result};
 
-use debugger_util as nesd;
-
-fn main() -> nesd::Result<()> {
-    nesd::start()
+fn main() -> Result<()> {
+    start()
 }
