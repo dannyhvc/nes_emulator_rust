@@ -5,35 +5,44 @@ mod tests;
 
 mod macros;
 
-use nes_debug::{self as nesd, ratatui::widgets as w};
-use nesd::Stylize;
+mod debugger_util;
 
-fn ui(frame: &mut nesd::Frame) {
-    let (area, layout) = nesd::calc_layout(frame.size());
+use debugger_util as nesd;
+use ratatui::{
+    layout::{Constraint, Direction, Layout},
+    widgets::{Block, Borders, Paragraph},
+};
 
-    // made a random paragraph
-    let p = w::Paragraph::new("Dan made a paragraph")
-        .alignment(nesd::Alignment::Center);
+fn ui(f: &mut nesd::Frame) {
+    let outer_layout = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints(vec![
+            Constraint::Percentage(50),
+            Constraint::Percentage(50),
+        ])
+        .split(f.size());
 
-    // made a random table
-    let mut table_state = w::TableState::default();
-    let rows = [
-        w::Row::new(vec!["Row11", "Row12", "Row13"]),
-        w::Row::new(vec!["Row21", "Row22", "Row23"]),
-        w::Row::new(vec!["Row31", "Row32", "Row33"]),
-    ];
-    let widths = [
-        nesd::Constraint::Length(5),
-        nesd::Constraint::Length(5),
-        nesd::Constraint::Length(10),
-    ];
-    let table = w::Table::new(rows, widths)
-        .block(w::Block::default().title("Table"))
-        .highlight_style(
-            nesd::Style::new().add_modifier(nesd::Modifier::REVERSED),
-        )
-        .highlight_symbol(">>");
-    frame.render_stateful_widget(table, area, &mut table_state);
+    let inner_layout = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints(vec![
+            Constraint::Percentage(25),
+            Constraint::Percentage(75),
+        ])
+        .split(outer_layout[1]);
+
+    // testing out the supper simple layout system
+    f.render_widget(
+        Paragraph::new("outter 0").block(Block::new().borders(Borders::ALL)),
+        outer_layout[0],
+    );
+    f.render_widget(
+        Paragraph::new("inner 0").block(Block::new().borders(Borders::ALL)),
+        inner_layout[0],
+    );
+    f.render_widget(
+        Paragraph::new("inner 1").block(Block::new().borders(Borders::ALL)),
+        inner_layout[1],
+    );
 }
 
 fn main() -> nesd::Result<()> {
@@ -45,5 +54,5 @@ fn main() -> nesd::Result<()> {
         eprintln!("{err:?}");
     }
 
-    Ok(())
+    nesd::restore_terminal(terminal)
 }
