@@ -9,5 +9,11 @@ mod debugger;
 use debugger::util::{start, Result};
 
 fn main() -> Result<()> {
-    start()
+    let mut args = std::env::args();
+
+    if args.any(|a| a == "dbg") {
+        start()?;
+    }
+
+    Ok(())
 }
