@@ -1,7 +1,6 @@
 use super::KB;
 
 // this is a big boy struct
-#[allow(non_snake_case)]
 #[derive(Debug)]
 pub struct PPU {
     table_name: [[u8; KB(1)]; 2],    // 2* 1KB

@@ -1,4 +1,3 @@
-#![allow(non_snake_case)]
 use super::{bus::Bus, dh_cpu::CPU};
 
 /// ```no_run
