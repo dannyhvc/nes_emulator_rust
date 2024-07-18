@@ -1,11 +1,18 @@
 use super::{dh_cpu::CPU, END_OF_RAM, KB, START_OF_RAM};
 
-#[derive(Debug)]
-pub struct Bus {
+#[derive(Debug, Clone)]
+pub struct BUS {
     pub cpu_ram: [u8; KB(64)],  // 2Kb of ram
     pub sys_clock_counter: u32, // motherboards clock for busses
 }
-impl Bus {
+
+impl Default for BUS {
+    fn default() -> Self {
+        BUS::new()
+    }
+}
+
+impl BUS {
     /// Creates a new [`Bus`]. With 2Kb of MOS 6502 memory
     pub fn new() -> Self {
         Self {

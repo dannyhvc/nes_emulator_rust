@@ -3,7 +3,7 @@ use crate::{
     bs,
     components::{
         self,
-        bus::Bus,
+        dh_bus::BUS,
         dh_cpu::CPU,
         types::{CpuFlags, CpuInstruction, M6502AddrModes, M6502Opcodes},
     },
@@ -12,7 +12,7 @@ use crate::{
 #[test]
 fn test_clock() {
     let mut cpu: CPU = CPU::new();
-    let mut bus: Bus = Bus::new();
+    let mut bus: BUS = BUS::new();
     CPU::reset(&mut cpu, &bus);
     for _ in 0..8 {
         CPU::clock(&mut cpu, &mut bus);
@@ -23,7 +23,7 @@ fn test_clock() {
 #[test]
 fn test_LDA() {
     let mut cpu = CPU::new();
-    let mut bus = Bus::new();
+    let mut bus = BUS::new();
 
     CPU::reset(&mut cpu, &bus);
     cpu.set_cycles(0);
@@ -45,7 +45,7 @@ fn test_new() {
 #[test]
 fn test_disassemble() {
     let mut cpu = CPU::new();
-    let mut bus = Bus::new();
+    let mut bus = BUS::new();
 
     const START: u16 = 0x0000;
     const STOP: u16 = 0x000f;
@@ -78,7 +78,7 @@ fn test_disassemble() {
 #[test]
 fn test_mini_program() {
     let mut cpu = CPU::new();
-    let mut bus = Bus::new();
+    let mut bus = BUS::new();
     const START: u16 = 0xC000;
     const STOP: u16 = 0xC00E;
 

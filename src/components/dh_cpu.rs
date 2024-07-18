@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::components::types::CpuInstruction;
 
-use super::bus::Bus;
+use super::dh_bus::BUS;
 use super::types::{AddrModeMneumonic, CpuFlags, M6502AddrModes, M6502Opcodes};
 use super::{HIGH_BYTE, LOOKUP_TABLE, LOW_BYTE, TOP_BIT_THRESH};
 
@@ -24,7 +24,7 @@ use super::{HIGH_BYTE, LOOKUP_TABLE, LOW_BYTE, TOP_BIT_THRESH};
 /// * `opcode` - Is the instruction byte
 /// * `cycles` - Counts how many cycles the instruction has remaining
 /// * `clock_count` - A global accumulation of the number of clocks
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct CPU {
     // cpu Core registers, exposed as public here for ease of access from external
     // examinors. This is all the 6502 has.
@@ -43,6 +43,34 @@ pub struct CPU {
     opcode: u8,  // Is the instruction byte
     cycles: u8,  // Counts how many cycles the instruction has remaining
     _clock_count: u32, // A global accumulation of the number of clocks
+}
+
+impl std::fmt::Display for CPU {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        writeln!(f, "a:      0x{:02X} ({})\n", self.a, self.a)?;
+        writeln!(f, "x:      0x{:02X} ({})\n", self.x, self.x)?;
+        writeln!(f, "y:      0x{:02X} ({})\n", self.y, self.y)?;
+        writeln!(f, "sp:     0x{:02X} ({})\n", self.sp, self.sp)?;
+        writeln!(f, "pc:     0x{:04X} ({})\n", self.pc, self.pc)?;
+        writeln!(f, "status: 0x{:02X} ({})\n", self.status, self.status)?;
+        writeln!(f, "fetched: 0x{:02X} ({})\n", self.fetched, self.fetched)?;
+        writeln!(f, "temp:   0x{:04X} ({})\n", self.temp, self.temp)?;
+        writeln!(f, "abs:    0x{:04X} ({})\n", self.abs, self.abs)?;
+        writeln!(f, "rel:    0x{:04X} ({})\n", self.rel, self.rel)?;
+        writeln!(f, "opcode: 0x{:02X} ({})\n", self.opcode, self.opcode)?;
+        writeln!(f, "cycles: 0x{:02X} ({})\n", self.cycles, self.cycles)?;
+        writeln!(
+            f,
+            "_clock_count: 0x{:08X} ({})\n",
+            self._clock_count, self._clock_count
+        )?;
+        Ok(())
+    }
+}
+impl Default for CPU {
+    fn default() -> Self {
+        CPU::new()
+    }
 }
 
 impl CPU {
@@ -105,7 +133,7 @@ impl CPU {
     /// assert_eq!(cpu.fetched, 0xAB);
     /// ```
     #[inline]
-    pub fn fetch(&mut self, bus: &Bus) -> u8 {
+    pub fn fetch(&mut self, bus: &BUS) -> u8 {
         let instruction: &CpuInstruction = &LOOKUP_TABLE[self.opcode as usize];
         match instruction.mneumonic.am_name == AddrModeMneumonic::IMP {
             true => (),
@@ -187,7 +215,7 @@ impl CPU {
     /// assert_eq!(cpu.cycles, 8);
     /// ```
     ///
-    pub fn reset(cpu: &mut CPU, bus: &Bus) {
+    pub fn reset(cpu: &mut CPU, bus: &BUS) {
         cpu.abs = 0xFFFC; // FFF 1110
         let low: u16 = bus.read(cpu.abs + 0, false) as u16;
         let high: u16 = bus.read(cpu.abs + 1, false) as u16;
@@ -226,7 +254,7 @@ impl CPU {
     /// let mut bus = Bus::new();
     /// M6502::clock(&mut cpu, &mut bus);
     /// ```
-    pub fn clock(cpu: &mut CPU, bus: &mut Bus) {
+    pub fn clock(cpu: &mut CPU, bus: &mut BUS) {
         if cpu.complete() {
             cpu.opcode = bus.read(cpu.pc, true);
             cpu.set_flag(CpuFlags::U, true);
@@ -331,7 +359,7 @@ impl CPU {
     /// A HashMap<u16, String> containing the disassembled code, with the key being the address of the instruction and
     /// the value being a String representation of the instruction.
     pub fn disassemble(
-        bus: &mut Bus,
+        bus: &mut BUS,
         start: u16,
         stop: u16,
     ) -> HashMap<u16, String> {
@@ -679,7 +707,7 @@ impl M6502Opcodes for CPU {
     /// assert_eq!(cpu.get_flag(M6502::M6502Flags::V), false);
     /// assert_eq!(cpu.get_flag(M6502::M6502Flags::N), false);
     /// ```
-    fn ADC(cpu: &mut CPU, bus: &mut Bus) -> u8 {
+    fn ADC(cpu: &mut CPU, bus: &mut BUS) -> u8 {
         // Grab the data that we are adding to the accumulator
         // Add is performed in 16-bit domain for emulation to capture any
         // carry bit, which will exist in bit 8 of the 16-bit word
@@ -755,7 +783,7 @@ impl M6502Opcodes for CPU {
     /// assert_eq!(cpu.get_flag(M6502::M6502Flags::Z), false);
     /// assert_eq!(cpu.get_flag(M6502::M6502Flags::N), true);
     /// ```
-    fn AND(cpu: &mut CPU, bus: &mut Bus) -> u8 {
+    fn AND(cpu: &mut CPU, bus: &mut BUS) -> u8 {
         cpu.a &= cpu.fetch(bus);
         cpu.set_flag(CpuFlags::Z, cpu.a == 0x00);
         cpu.set_flag(CpuFlags::N, (cpu.a & TOP_BIT_THRESH as u8) != 0);
@@ -825,7 +853,7 @@ impl M6502Opcodes for CPU {
     /// assert_eq!(cpu.get_flag(M6502::M6502Flags::N), false);
     /// ```
     #[inline]
-    fn ASL(cpu: &mut CPU, bus: &mut Bus) -> u8 {
+    fn ASL(cpu: &mut CPU, bus: &mut BUS) -> u8 {
         cpu.temp = (cpu.fetch(bus) << 1).into();
         cpu.set_flag(CpuFlags::C, (cpu.temp & HIGH_BYTE) > 0);
         cpu.set_flag(CpuFlags::Z, (cpu.temp & LOW_BYTE) == 0);
@@ -858,7 +886,7 @@ impl M6502Opcodes for CPU {
     ///
     /// The number of cycles that the instruction has consumed, which is always 0.
     #[inline]
-    fn BCC(cpu: &mut CPU, _: &mut Bus) -> u8 {
+    fn BCC(cpu: &mut CPU, _: &mut BUS) -> u8 {
         if cpu.get_flag(CpuFlags::C) == 0_u8 {
             cpu.cycles += 1_u8;
             cpu.abs = cpu.pc + cpu.rel;
@@ -926,7 +954,7 @@ impl M6502Opcodes for CPU {
     /// assert_eq!(cpu.pc, 0x1234);
     /// ```
     #[inline]
-    fn BCS(cpu: &mut CPU, _: &mut Bus) -> u8 {
+    fn BCS(cpu: &mut CPU, _: &mut BUS) -> u8 {
         if cpu.get_flag(CpuFlags::C) == 1_u8 {
             cpu.cycles += 1_u8;
             cpu.abs = cpu.pc + cpu.rel;
@@ -994,7 +1022,7 @@ impl M6502Opcodes for CPU {
     /// assert_eq!(cpu.pc, 0x1234);
     /// ```
     #[inline]
-    fn BEQ(cpu: &mut CPU, _: &mut Bus) -> u8 {
+    fn BEQ(cpu: &mut CPU, _: &mut BUS) -> u8 {
         if cpu.get_flag(CpuFlags::Z) == 1_u8 {
             cpu.cycles += 1_u8;
             cpu.abs = cpu.pc + cpu.rel;
@@ -1064,7 +1092,7 @@ impl M6502Opcodes for CPU {
     /// assert_eq!(cpu.get_flag(M6502::M6502Flags::V), true);
     /// ```
     #[inline]
-    fn BIT(cpu: &mut CPU, bus: &mut Bus) -> u8 {
+    fn BIT(cpu: &mut CPU, bus: &mut BUS) -> u8 {
         cpu.temp = (cpu.a & cpu.fetch(bus)) as u16;
         cpu.set_flag(CpuFlags::Z, (cpu.temp & LOW_BYTE) == 0x00);
         cpu.set_flag(CpuFlags::N, (cpu.fetched & (1 << 7)) != 0);
@@ -1121,7 +1149,7 @@ impl M6502Opcodes for CPU {
     /// assert_eq!(cpu.pc, 0x1244); // Branch taken, new address is pc + addr_rel
     /// ```
     #[inline]
-    fn BMI(cpu: &mut CPU, _: &mut Bus) -> u8 {
+    fn BMI(cpu: &mut CPU, _: &mut BUS) -> u8 {
         if cpu.get_flag(CpuFlags::N) == 1_u8 {
             cpu.cycles += 1_u8;
             cpu.abs = cpu.pc + cpu.rel;
@@ -1182,7 +1210,7 @@ impl M6502Opcodes for CPU {
     /// assert_eq!(cpu.pc, 0x1244); // Branch taken, new address is pc + addr_rel
     /// ```
     #[inline]
-    fn BNE(cpu: &mut CPU, _: &mut Bus) -> u8 {
+    fn BNE(cpu: &mut CPU, _: &mut BUS) -> u8 {
         if cpu.get_flag(CpuFlags::Z) == 0_u8 {
             cpu.cycles += 1_u8;
             cpu.abs = cpu.pc + cpu.rel;
@@ -1250,7 +1278,7 @@ impl M6502Opcodes for CPU {
     /// assert_eq!(cpu.pc, 0x1234);
     /// ```
     #[inline]
-    fn BPL(cpu: &mut CPU, _: &mut Bus) -> u8 {
+    fn BPL(cpu: &mut CPU, _: &mut BUS) -> u8 {
         if cpu.get_flag(CpuFlags::N) == 0 {
             cpu.cycles += 1;
             cpu.abs = cpu.pc + cpu.rel;
@@ -1300,7 +1328,7 @@ impl M6502Opcodes for CPU {
     /// ```
     ///
     #[inline]
-    fn BRK(cpu: &mut CPU, bus: &mut Bus) -> u8 {
+    fn BRK(cpu: &mut CPU, bus: &mut BUS) -> u8 {
         cpu.pc += 1;
 
         cpu.set_flag(CpuFlags::I, true);
@@ -1327,7 +1355,7 @@ impl M6502Opcodes for CPU {
     }
 
     #[inline]
-    fn BVC(cpu: &mut CPU, _: &mut Bus) -> u8 {
+    fn BVC(cpu: &mut CPU, _: &mut BUS) -> u8 {
         if cpu.get_flag(CpuFlags::V) == 0u8 {
             cpu.cycles += 1;
             cpu.abs = cpu.pc + cpu.rel;
@@ -1341,7 +1369,7 @@ impl M6502Opcodes for CPU {
     }
 
     #[inline]
-    fn BVS(cpu: &mut CPU, _: &mut Bus) -> u8 {
+    fn BVS(cpu: &mut CPU, _: &mut BUS) -> u8 {
         if cpu.get_flag(CpuFlags::V) == 1u8 {
             cpu.cycles += 1;
             cpu.abs = cpu.pc + cpu.rel;
@@ -1355,31 +1383,31 @@ impl M6502Opcodes for CPU {
     }
 
     #[inline]
-    fn CLC(cpu: &mut CPU, _: &mut Bus) -> u8 {
+    fn CLC(cpu: &mut CPU, _: &mut BUS) -> u8 {
         cpu.set_flag(CpuFlags::C, false);
         0x0u8
     }
 
     #[inline]
-    fn CLD(cpu: &mut CPU, _: &mut Bus) -> u8 {
+    fn CLD(cpu: &mut CPU, _: &mut BUS) -> u8 {
         cpu.set_flag(CpuFlags::D, false);
         0u8
     }
 
     #[inline]
-    fn CLI(cpu: &mut CPU, _: &mut Bus) -> u8 {
+    fn CLI(cpu: &mut CPU, _: &mut BUS) -> u8 {
         cpu.set_flag(CpuFlags::I, false);
         0u8
     }
 
     #[inline]
-    fn CLV(cpu: &mut CPU, _: &mut Bus) -> u8 {
+    fn CLV(cpu: &mut CPU, _: &mut BUS) -> u8 {
         cpu.set_flag(CpuFlags::V, false);
         0u8
     }
 
     #[inline]
-    fn CMP(cpu: &mut CPU, bus: &mut Bus) -> u8 {
+    fn CMP(cpu: &mut CPU, bus: &mut BUS) -> u8 {
         cpu.temp = (cpu.a - cpu.fetch(bus)).into();
         cpu.set_flag(CpuFlags::C, cpu.a >= cpu.fetched);
         cpu.set_flag(CpuFlags::Z, cpu.temp & LOW_BYTE == 0x0000);
@@ -1401,7 +1429,7 @@ impl M6502Opcodes for CPU {
     ///
     /// The result of the operation, which is always 0.
     #[inline]
-    fn CPX(cpu: &mut CPU, bus: &mut Bus) -> u8 {
+    fn CPX(cpu: &mut CPU, bus: &mut BUS) -> u8 {
         cpu.temp = (cpu.x - cpu.fetch(bus)).into();
         cpu.set_flag(CpuFlags::C, cpu.x >= cpu.fetched);
         cpu.set_flag(CpuFlags::Z, cpu.temp & LOW_BYTE == 0x0000);
@@ -1410,7 +1438,7 @@ impl M6502Opcodes for CPU {
     }
 
     #[inline]
-    fn CPY(cpu: &mut CPU, bus: &mut Bus) -> u8 {
+    fn CPY(cpu: &mut CPU, bus: &mut BUS) -> u8 {
         cpu.temp = (cpu.y - cpu.fetch(bus)).into();
         cpu.set_flag(CpuFlags::C, cpu.y >= cpu.fetched);
         cpu.set_flag(CpuFlags::Z, cpu.temp & LOW_BYTE == 0x0000);
@@ -1419,7 +1447,7 @@ impl M6502Opcodes for CPU {
     }
 
     #[inline]
-    fn DEC(cpu: &mut CPU, bus: &mut Bus) -> u8 {
+    fn DEC(cpu: &mut CPU, bus: &mut BUS) -> u8 {
         cpu.temp = cpu.fetch(bus) as u16 - 1;
         bus.write(cpu.abs, (cpu.temp & LOW_BYTE) as u8);
         cpu.set_flag(CpuFlags::Z, cpu.temp & LOW_BYTE == 0x0000);
@@ -1428,7 +1456,7 @@ impl M6502Opcodes for CPU {
     }
 
     #[inline]
-    fn DEX(cpu: &mut CPU, _: &mut Bus) -> u8 {
+    fn DEX(cpu: &mut CPU, _: &mut BUS) -> u8 {
         cpu.x -= 1;
         cpu.set_flag(CpuFlags::Z, cpu.x == 0x00);
         cpu.set_flag(CpuFlags::N, cpu.x & TOP_BIT_THRESH as u8 != 0x0000);
@@ -1436,7 +1464,7 @@ impl M6502Opcodes for CPU {
     }
 
     #[inline]
-    fn DEY(cpu: &mut CPU, _: &mut Bus) -> u8 {
+    fn DEY(cpu: &mut CPU, _: &mut BUS) -> u8 {
         cpu.y -= 1;
         cpu.set_flag(CpuFlags::Z, cpu.y == 0x00);
         cpu.set_flag(CpuFlags::N, cpu.y & TOP_BIT_THRESH as u8 != 0x0000);
@@ -1444,7 +1472,7 @@ impl M6502Opcodes for CPU {
     }
 
     #[inline]
-    fn EOR(cpu: &mut CPU, bus: &mut Bus) -> u8 {
+    fn EOR(cpu: &mut CPU, bus: &mut BUS) -> u8 {
         cpu.a ^= cpu.fetch(bus);
         cpu.set_flag(CpuFlags::Z, cpu.y == 0x00);
         cpu.set_flag(CpuFlags::N, cpu.y & TOP_BIT_THRESH as u8 != 0x0000);
@@ -1452,7 +1480,7 @@ impl M6502Opcodes for CPU {
     }
 
     #[inline]
-    fn INC(cpu: &mut CPU, bus: &mut Bus) -> u8 {
+    fn INC(cpu: &mut CPU, bus: &mut BUS) -> u8 {
         cpu.temp = cpu.fetch(bus) as u16 + 1;
         bus.write(cpu.abs, (cpu.temp & LOW_BYTE) as u8);
         cpu.set_flag(CpuFlags::Z, cpu.temp & LOW_BYTE == 0x0000);
@@ -1461,7 +1489,7 @@ impl M6502Opcodes for CPU {
     }
 
     #[inline]
-    fn INX(cpu: &mut CPU, _: &mut Bus) -> u8 {
+    fn INX(cpu: &mut CPU, _: &mut BUS) -> u8 {
         cpu.x += 1;
         cpu.set_flag(CpuFlags::Z, cpu.x == 0x00);
         cpu.set_flag(CpuFlags::N, cpu.x & TOP_BIT_THRESH as u8 != 0x0000);
@@ -1469,7 +1497,7 @@ impl M6502Opcodes for CPU {
     }
 
     #[inline]
-    fn INY(cpu: &mut CPU, _: &mut Bus) -> u8 {
+    fn INY(cpu: &mut CPU, _: &mut BUS) -> u8 {
         cpu.y += 1;
         cpu.set_flag(CpuFlags::Z, cpu.y == 0x00);
         cpu.set_flag(CpuFlags::N, cpu.y & TOP_BIT_THRESH as u8 != 0x0000);
@@ -1477,13 +1505,13 @@ impl M6502Opcodes for CPU {
     }
 
     #[inline]
-    fn JMP(cpu: &mut CPU, _: &mut Bus) -> u8 {
+    fn JMP(cpu: &mut CPU, _: &mut BUS) -> u8 {
         cpu.pc = cpu.abs;
         0u8
     }
 
     #[inline]
-    fn JSR(cpu: &mut CPU, bus: &mut Bus) -> u8 {
+    fn JSR(cpu: &mut CPU, bus: &mut BUS) -> u8 {
         cpu.pc -= 1;
 
         bus.write(0x0100 + cpu.sp as u16, (cpu.pc << 8 & LOW_BYTE) as u8);
@@ -1520,7 +1548,7 @@ impl M6502Opcodes for CPU {
     /// assert_eq!(LDA(&mut cpu, &mut bus), 1);
     /// ```
     #[inline]
-    fn LDA(cpu: &mut CPU, bus: &mut Bus) -> u8 {
+    fn LDA(cpu: &mut CPU, bus: &mut BUS) -> u8 {
         cpu.a = cpu.fetch(bus); // using a
         cpu.set_flag(CpuFlags::Z, cpu.a == 0x00);
         cpu.set_flag(CpuFlags::N, cpu.a & TOP_BIT_THRESH as u8 != 0x00);
@@ -1528,7 +1556,7 @@ impl M6502Opcodes for CPU {
     }
 
     #[inline]
-    fn LDX(cpu: &mut CPU, bus: &mut Bus) -> u8 {
+    fn LDX(cpu: &mut CPU, bus: &mut BUS) -> u8 {
         cpu.x = cpu.fetch(bus);
         cpu.set_flag(CpuFlags::Z, cpu.x == 0x00);
         cpu.set_flag(CpuFlags::N, cpu.x & TOP_BIT_THRESH as u8 != 0x00);
@@ -1555,7 +1583,7 @@ impl M6502Opcodes for CPU {
     /// This function returns the number of clock cycles used by the instruction.
     ///
     #[inline]
-    fn LDY(cpu: &mut CPU, bus: &mut Bus) -> u8 {
+    fn LDY(cpu: &mut CPU, bus: &mut BUS) -> u8 {
         cpu.y = cpu.fetch(bus);
         cpu.set_flag(CpuFlags::Z, cpu.y == 0x00);
         cpu.set_flag(CpuFlags::N, cpu.y & TOP_BIT_THRESH as u8 != 0x00);
@@ -1563,7 +1591,7 @@ impl M6502Opcodes for CPU {
     }
 
     #[inline]
-    fn LSR(cpu: &mut CPU, bus: &mut Bus) -> u8 {
+    fn LSR(cpu: &mut CPU, bus: &mut BUS) -> u8 {
         cpu.temp = (cpu.fetch(bus) >> 1) as u16;
         cpu.set_flag(CpuFlags::C, cpu.fetched & 0x0001 != 0x0000);
         cpu.set_flag(CpuFlags::Z, cpu.temp & LOW_BYTE == 0x0000);
@@ -1579,7 +1607,7 @@ impl M6502Opcodes for CPU {
     }
 
     #[inline]
-    fn NOP(cpu: &mut CPU, _: &mut Bus) -> u8 {
+    fn NOP(cpu: &mut CPU, _: &mut BUS) -> u8 {
         return match cpu.opcode {
             0x1C | 0x3C | 0x5C | 0x7C | 0xDC | 0xFC => 1u8,
             _ => 0u8,
@@ -1587,7 +1615,7 @@ impl M6502Opcodes for CPU {
     }
 
     #[inline]
-    fn ORA(cpu: &mut CPU, bus: &mut Bus) -> u8 {
+    fn ORA(cpu: &mut CPU, bus: &mut BUS) -> u8 {
         cpu.a |= cpu.fetch(bus);
         cpu.set_flag(CpuFlags::Z, cpu.a == 0x00);
         cpu.set_flag(CpuFlags::N, cpu.a & TOP_BIT_THRESH as u8 != 0x00);
@@ -1595,14 +1623,14 @@ impl M6502Opcodes for CPU {
     }
 
     #[inline]
-    fn PHA(cpu: &mut CPU, bus: &mut Bus) -> u8 {
+    fn PHA(cpu: &mut CPU, bus: &mut BUS) -> u8 {
         bus.write(0x0100 + cpu.sp as u16, cpu.a);
         cpu.sp -= 1;
         0u8
     }
 
     #[inline]
-    fn PHP(cpu: &mut CPU, bus: &mut Bus) -> u8 {
+    fn PHP(cpu: &mut CPU, bus: &mut BUS) -> u8 {
         bus.write(
             0x0100 + cpu.sp as u16,
             cpu.status | CpuFlags::B as u8 | CpuFlags::U as u8,
@@ -1614,7 +1642,7 @@ impl M6502Opcodes for CPU {
     }
 
     #[inline]
-    fn PLA(cpu: &mut CPU, bus: &mut Bus) -> u8 {
+    fn PLA(cpu: &mut CPU, bus: &mut BUS) -> u8 {
         cpu.sp += 1;
         cpu.status = bus.read(0x0100 + cpu.sp as u16, false);
         cpu.set_flag(CpuFlags::Z, cpu.a == 0x00);
@@ -1623,7 +1651,7 @@ impl M6502Opcodes for CPU {
     }
 
     #[inline]
-    fn PLP(cpu: &mut CPU, bus: &mut Bus) -> u8 {
+    fn PLP(cpu: &mut CPU, bus: &mut BUS) -> u8 {
         cpu.sp += 1;
         cpu.status = bus.read(0x0100 + cpu.sp as u16, false);
         cpu.set_flag(CpuFlags::U, true);
@@ -1631,7 +1659,7 @@ impl M6502Opcodes for CPU {
     }
 
     #[inline]
-    fn ROL(cpu: &mut CPU, bus: &mut Bus) -> u8 {
+    fn ROL(cpu: &mut CPU, bus: &mut BUS) -> u8 {
         cpu.temp = (cpu.fetch(bus) << 1 | cpu.get_flag(CpuFlags::C)).into();
         cpu.set_flag(CpuFlags::C, cpu.temp & HIGH_BYTE != 0x0000);
         cpu.set_flag(CpuFlags::Z, cpu.temp & LOW_BYTE == 0x0000);
@@ -1647,7 +1675,7 @@ impl M6502Opcodes for CPU {
     }
 
     #[inline]
-    fn ROR(cpu: &mut CPU, bus: &mut Bus) -> u8 {
+    fn ROR(cpu: &mut CPU, bus: &mut BUS) -> u8 {
         cpu.temp =
             (cpu.get_flag(CpuFlags::C) << 7 | cpu.fetch(bus) >> 1).into();
         cpu.set_flag(CpuFlags::C, cpu.fetched & 0x01 == 0x00);
@@ -1664,7 +1692,7 @@ impl M6502Opcodes for CPU {
     }
 
     #[inline]
-    fn RTI(cpu: &mut CPU, bus: &mut Bus) -> u8 {
+    fn RTI(cpu: &mut CPU, bus: &mut BUS) -> u8 {
         cpu.sp += 1;
         cpu.status = bus.read(0x0100 + cpu.sp as u16, false);
         cpu.status &= !(CpuFlags::B as u8);
@@ -1678,7 +1706,7 @@ impl M6502Opcodes for CPU {
     }
 
     #[inline]
-    fn RTS(cpu: &mut CPU, bus: &mut Bus) -> u8 {
+    fn RTS(cpu: &mut CPU, bus: &mut BUS) -> u8 {
         cpu.sp += 1;
         cpu.pc = bus.read(0x0100 + cpu.sp as u16, false).into();
         cpu.sp += 1;
@@ -1689,7 +1717,7 @@ impl M6502Opcodes for CPU {
     }
 
     #[inline]
-    fn SBC(cpu: &mut CPU, bus: &mut Bus) -> u8 {
+    fn SBC(cpu: &mut CPU, bus: &mut BUS) -> u8 {
         let value: u16 = cpu.fetch(bus) as u16 ^ LOW_BYTE;
         cpu.temp = cpu.a as u16 + value + cpu.get_flag(CpuFlags::C) as u16;
         cpu.set_flag(CpuFlags::C, cpu.temp & HIGH_BYTE != 0x0000);
@@ -1705,43 +1733,43 @@ impl M6502Opcodes for CPU {
     }
 
     #[inline]
-    fn SEC(cpu: &mut CPU, _: &mut Bus) -> u8 {
+    fn SEC(cpu: &mut CPU, _: &mut BUS) -> u8 {
         cpu.set_flag(CpuFlags::C, true);
         0u8
     }
 
     #[inline]
-    fn SED(cpu: &mut CPU, _: &mut Bus) -> u8 {
+    fn SED(cpu: &mut CPU, _: &mut BUS) -> u8 {
         cpu.set_flag(CpuFlags::D, true);
         0u8
     }
 
     #[inline]
-    fn SEI(cpu: &mut CPU, _: &mut Bus) -> u8 {
+    fn SEI(cpu: &mut CPU, _: &mut BUS) -> u8 {
         cpu.set_flag(CpuFlags::I, true);
         0u8
     }
 
     #[inline]
-    fn STA(cpu: &mut CPU, bus: &mut Bus) -> u8 {
+    fn STA(cpu: &mut CPU, bus: &mut BUS) -> u8 {
         bus.write(cpu.abs, cpu.a);
         0u8
     }
 
     #[inline]
-    fn STX(cpu: &mut CPU, bus: &mut Bus) -> u8 {
+    fn STX(cpu: &mut CPU, bus: &mut BUS) -> u8 {
         bus.write(cpu.abs, cpu.x);
         0u8
     }
 
     #[inline]
-    fn STY(cpu: &mut CPU, bus: &mut Bus) -> u8 {
+    fn STY(cpu: &mut CPU, bus: &mut BUS) -> u8 {
         bus.write(cpu.abs, cpu.y);
         0u8
     }
 
     #[inline]
-    fn TAX(cpu: &mut CPU, _: &mut Bus) -> u8 {
+    fn TAX(cpu: &mut CPU, _: &mut BUS) -> u8 {
         cpu.x = cpu.a;
         cpu.set_flag(CpuFlags::Z, cpu.x == 0x00);
         cpu.set_flag(CpuFlags::N, cpu.x & TOP_BIT_THRESH as u8 != 0x0000);
@@ -1749,7 +1777,7 @@ impl M6502Opcodes for CPU {
     }
 
     #[inline]
-    fn TAY(cpu: &mut CPU, _: &mut Bus) -> u8 {
+    fn TAY(cpu: &mut CPU, _: &mut BUS) -> u8 {
         cpu.y = cpu.a;
         cpu.set_flag(CpuFlags::Z, cpu.y == 0x00);
         cpu.set_flag(CpuFlags::N, cpu.y & TOP_BIT_THRESH as u8 != 0x0000);
@@ -1757,7 +1785,7 @@ impl M6502Opcodes for CPU {
     }
 
     #[inline]
-    fn TSX(cpu: &mut CPU, _: &mut Bus) -> u8 {
+    fn TSX(cpu: &mut CPU, _: &mut BUS) -> u8 {
         cpu.x = cpu.sp;
         cpu.set_flag(CpuFlags::Z, cpu.x == 0x00);
         cpu.set_flag(CpuFlags::N, cpu.x & TOP_BIT_THRESH as u8 != 0x0000);
@@ -1765,7 +1793,7 @@ impl M6502Opcodes for CPU {
     }
 
     #[inline]
-    fn TXA(cpu: &mut CPU, _: &mut Bus) -> u8 {
+    fn TXA(cpu: &mut CPU, _: &mut BUS) -> u8 {
         cpu.a = cpu.x;
         cpu.set_flag(CpuFlags::Z, cpu.a == 0x00);
         cpu.set_flag(CpuFlags::N, cpu.a & TOP_BIT_THRESH as u8 != 0x0000);
@@ -1773,13 +1801,13 @@ impl M6502Opcodes for CPU {
     }
 
     #[inline(always)]
-    fn TXS(cpu: &mut CPU, _: &mut Bus) -> u8 {
+    fn TXS(cpu: &mut CPU, _: &mut BUS) -> u8 {
         cpu.sp = cpu.x;
         0u8
     }
 
     #[inline]
-    fn TYA(cpu: &mut CPU, _: &mut Bus) -> u8 {
+    fn TYA(cpu: &mut CPU, _: &mut BUS) -> u8 {
         cpu.a = cpu.y;
         cpu.set_flag(CpuFlags::Z, cpu.a == 0x00);
         cpu.set_flag(CpuFlags::N, cpu.a & TOP_BIT_THRESH as u8 != 0x0000);
@@ -1787,7 +1815,7 @@ impl M6502Opcodes for CPU {
     }
 
     #[inline(always)]
-    fn XXX(_: &mut CPU, _: &mut Bus) -> u8 {
+    fn XXX(_: &mut CPU, _: &mut BUS) -> u8 {
         0u8
     }
 }
@@ -1823,7 +1851,7 @@ impl M6502AddrModes for CPU {
     ///
     /// // The `fetched` register in the `cpu` will now hold the value from the accumulator.
     /// ```
-    fn IMP(cpu: &mut CPU, _: &mut Bus) -> u8 {
+    fn IMP(cpu: &mut CPU, _: &mut BUS) -> u8 {
         cpu.fetched = cpu.a;
         0x00
     }
@@ -1857,7 +1885,7 @@ impl M6502AddrModes for CPU {
     /// // The `abs` register in the `cpu` will now hold the value from the next byte
     /// // in the instruction stream.
     /// ```
-    fn IMM(cpu: &mut CPU, _bus: &mut Bus) -> u8 {
+    fn IMM(cpu: &mut CPU, _bus: &mut BUS) -> u8 {
         cpu.abs = cpu.pc;
         0x00
     }
@@ -1894,7 +1922,7 @@ impl M6502AddrModes for CPU {
     ///
     /// // The `abs` register in the `cpu` will now hold the value 0x42 from the zero page.
     /// ```
-    fn ZP0(cpu: &mut CPU, bus: &mut Bus) -> u8 {
+    fn ZP0(cpu: &mut CPU, bus: &mut BUS) -> u8 {
         cpu.abs = bus.read(cpu.pc, false) as u16;
         cpu.pc += 1;
         cpu.abs &= LOW_BYTE; // checking if high bit is on a new page
@@ -1935,7 +1963,7 @@ impl M6502AddrModes for CPU {
     ///
     /// // The `abs` register in the `cpu` will now hold the value 0x42 from the zero page.
     /// ```
-    fn ZPX(cpu: &mut CPU, bus: &mut Bus) -> u8 {
+    fn ZPX(cpu: &mut CPU, bus: &mut BUS) -> u8 {
         cpu.abs = bus.read(cpu.pc + cpu.x as u16, false) as u16;
         cpu.pc += 1;
         cpu.abs &= LOW_BYTE;
@@ -1976,7 +2004,7 @@ impl M6502AddrModes for CPU {
     ///
     /// // The `abs` register in the `cpu` will now hold the value 0x42 from the zero page.
     /// ```
-    fn ZPY(cpu: &mut CPU, bus: &mut Bus) -> u8 {
+    fn ZPY(cpu: &mut CPU, bus: &mut BUS) -> u8 {
         cpu.abs = bus.read(cpu.pc + cpu.y as u16, false) as u16;
         cpu.pc += 1;
         cpu.abs &= LOW_BYTE;
@@ -2017,7 +2045,7 @@ impl M6502AddrModes for CPU {
     ///
     /// // The `abs` register in the `cpu` will now hold the value 0x3412 (little-endian).
     /// ```
-    fn ABS(cpu: &mut CPU, bus: &mut Bus) -> u8 {
+    fn ABS(cpu: &mut CPU, bus: &mut BUS) -> u8 {
         let lo: u32 = bus.read(cpu.pc as u16, false).into();
         cpu.pc += 1;
         let hi: u32 = bus.read(cpu.pc as u16, false).into();
@@ -2062,7 +2090,7 @@ impl M6502AddrModes for CPU {
     /// // The `abs` register in the `cpu` will now hold the value 0x3422 (little-endian)
     /// // since X was added to the absolute address.
     /// ```
-    fn ABX(cpu: &mut CPU, bus: &mut Bus) -> u8 {
+    fn ABX(cpu: &mut CPU, bus: &mut BUS) -> u8 {
         let lo: u32 = bus.read(cpu.pc as u16, false).into();
         cpu.pc += 1;
         let hi: u32 = bus.read(cpu.pc as u16, false).into();
@@ -2113,7 +2141,7 @@ impl M6502AddrModes for CPU {
     /// // The `abs` register in the `cpu` will now hold the value 0x3422 (little-endian)
     /// // since Y was added to the absolute address.
     /// ```
-    fn ABY(cpu: &mut CPU, bus: &mut Bus) -> u8 {
+    fn ABY(cpu: &mut CPU, bus: &mut BUS) -> u8 {
         let lo: u16 = bus.read(cpu.pc as u16, false).into();
         cpu.pc += 1;
         let hi: u16 = bus.read(cpu.pc as u16, false).into();
@@ -2161,7 +2189,7 @@ impl M6502AddrModes for CPU {
     ///
     /// // The `rel` register in the `cpu` will now hold the value 16 (sign-extended).
     /// ```
-    fn REL(cpu: &mut CPU, bus: &mut Bus) -> u8 {
+    fn REL(cpu: &mut CPU, bus: &mut BUS) -> u8 {
         cpu.rel = bus.read(cpu.pc, false) as u16;
         cpu.pc += 1;
         if (cpu.rel & 0x08) != 0 {
@@ -2197,7 +2225,7 @@ impl M6502AddrModes for CPU {
     /// assert_eq!(cpu.addr_abs, 0x8442);
     /// assert_eq!(result, 0x00);
     ///```
-    fn IND(cpu: &mut CPU, bus: &mut Bus) -> u8 {
+    fn IND(cpu: &mut CPU, bus: &mut BUS) -> u8 {
         let pointer_lo = bus.read(cpu.pc, false) as u16;
         cpu.pc += 1;
         let pointer_hi = bus.read(cpu.pc as u16, false) as u16;
@@ -2261,7 +2289,7 @@ impl M6502AddrModes for CPU {
     /// let result = bus.read(cpu.addr_abs, true);
     /// assert_eq!(result, 0x42);
     /// ```
-    fn IZX(cpu: &mut CPU, bus: &mut Bus) -> u8 {
+    fn IZX(cpu: &mut CPU, bus: &mut BUS) -> u8 {
         let t: u8 = bus.read(cpu.pc, false);
         cpu.pc += 1;
 
@@ -2286,7 +2314,7 @@ impl M6502AddrModes for CPU {
     ///
     /// The result of the operation, which is either 0 or 1 depending on whether
     /// the operation resulted in a page boundary crossing.
-    fn IZY(cpu: &mut CPU, bus: &mut Bus) -> u8 {
+    fn IZY(cpu: &mut CPU, bus: &mut BUS) -> u8 {
         let t: u8 = bus.read(cpu.pc, false);
         cpu.pc += 1;
 
