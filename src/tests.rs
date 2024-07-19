@@ -15,7 +15,7 @@ fn test_clock() {
     let mut bus: BUS = BUS::new();
     CPU::reset(&mut cpu, &bus);
     for _ in 0..8 {
-        CPU::clock(&mut cpu, &mut bus);
+        cpu.clock(&mut bus);
     }
     assert!(cpu.cycles() == 0);
 }
@@ -31,9 +31,9 @@ fn test_LDA() {
     cpu.set_pc(0xFFFC);
     bus.write(cpu.pc(), 0xA9); // index 169/LDA/IMM of lookup table
 
-    CPU::clock(&mut cpu, &mut bus);
+    cpu.clock(&mut bus);
     cpu.set_pc(10);
-    CPU::clock(&mut cpu, &mut bus);
+    cpu.clock(&mut bus);
     dbg!(cpu);
 }
 
@@ -55,10 +55,10 @@ fn test_disassemble() {
 
     for i in START..STOP {
         bus.write(i, 0xa9); // 169 LDA
-        CPU::clock(&mut cpu, &mut bus);
+        cpu.clock(&mut bus);
         cpu.set_pc(cpu.pc() + 1);
 
-        CPU::clock(&mut cpu, &mut bus);
+        cpu.clock(&mut bus);
 
         // dbg!(cpu.opcode());
     }

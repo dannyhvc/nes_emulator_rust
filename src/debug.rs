@@ -51,7 +51,9 @@ impl Sandbox for Debuggees {
             ))))
             .padding(100);
 
-        Container::new(row![cpu_col, bus_col]).into()
+        let scroll_area = iced::widget::Scrollable::new(bus_col);
+
+        Container::new(row![cpu_col, scroll_area]).into()
     }
 }
 
