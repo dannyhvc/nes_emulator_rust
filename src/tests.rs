@@ -2,32 +2,37 @@
 use crate::{
     bs,
     components::{
-        self,
-        dh_bus::BUS,
-        dh_cpu::CPU,
-        types::{CpuFlags, CpuInstruction, M6502AddrModes, M6502Opcodes},
+        dh_bus::{self, BUS},
+        dh_cpu::{self, CPU},
     },
 };
+use rstest::{fixture, rstest};
 
-#[test]
-fn test_clock() {
-    let mut cpu: CPU = CPU::new();
-    let mut bus: BUS = BUS::new();
-    CPU::reset(&mut cpu, &bus);
+#[fixture]
+fn cpu() -> dh_cpu::CPU {
+    let mut cpu = CPU::new();
+    let temp_bus = BUS::new();
+    cpu.reset(&temp_bus);
+    cpu.set_cycles(0);
+    cpu
+}
+
+#[fixture]
+fn bus() -> dh_bus::BUS {
+    BUS::new()
+}
+
+// #[rstest]
+fn test_clock(mut cpu: dh_cpu::CPU, mut bus: dh_bus::BUS) {
+    cpu.reset(&bus);
     for _ in 0..8 {
         cpu.clock(&mut bus);
     }
     assert!(cpu.cycles() == 0);
 }
 
-#[test]
-fn test_LDA() {
-    let mut cpu = CPU::new();
-    let mut bus = BUS::new();
-
-    CPU::reset(&mut cpu, &bus);
-    cpu.set_cycles(0);
-
+// #[rstest]
+fn test_LDA(mut cpu: dh_cpu::CPU, mut bus: dh_bus::BUS) {
     cpu.set_pc(0xFFFC);
     bus.write(cpu.pc(), 0xA9); // index 169/LDA/IMM of lookup table
 
@@ -37,21 +42,10 @@ fn test_LDA() {
     dbg!(cpu);
 }
 
-#[test]
-fn test_new() {
-    let _cpu: CPU = CPU::new();
-}
-
-#[test]
-fn test_disassemble() {
-    let mut cpu = CPU::new();
-    let mut bus = BUS::new();
-
+// #[rstest]
+fn test_disassemble(mut cpu: dh_cpu::CPU, mut bus: dh_bus::BUS) {
     const START: u16 = 0x0000;
     const STOP: u16 = 0x000f;
-
-    CPU::reset(&mut cpu, &bus);
-    cpu.set_cycles(0);
 
     for i in START..STOP {
         bus.write(i, 0xa9); // 169 LDA
@@ -75,10 +69,8 @@ fn test_disassemble() {
 /// - `$C00A`  `65` `03`      ;ADC $03   Add the value at memory location $03 to the accumulator
 /// - `$C00C`  `85` `04`      ;STA $04   Store the result in memory location $04
 /// - `$C00E`  `4C` `00` `C0` ;JMP $C000 Jump back to the instruction at memory location $C000
-#[test]
-fn test_mini_program() {
-    let mut cpu = CPU::new();
-    let mut bus = BUS::new();
+#[rstest]
+fn test_mini_program(mut cpu: dh_cpu::CPU, mut bus: dh_bus::BUS) {
     const START: u16 = 0xC000;
     const STOP: u16 = 0xC00E;
 
@@ -101,17 +93,20 @@ fn test_mini_program() {
     ];
 
     // is there a better way to do this?
-    CPU::reset(&mut cpu, &bus);
     bus.load_instruction_mem(ttape);
-    cpu.set_cycles(0);
+    for _ in 0..8 {
+        cpu.clock(&mut bus);
+    }
 
     let disasm: std::collections::HashMap<u16, String> =
         CPU::disassemble(&mut bus, START, STOP);
 
     dbg!(disasm);
+
+    dbg!(dh_bus::get_addr_access_hit_count());
 }
 
-#[test]
+// #[rstest]
 fn test_gex_fmt() {
     let string_rep: String = format!("#${:x} {{imm}}", 100u8 as u32);
     dbg!(string_rep);
