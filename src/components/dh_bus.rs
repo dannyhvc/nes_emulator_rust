@@ -1,11 +1,45 @@
+use self::ram_stats::RamAccessType;
+
 use super::{dh_cpu::CPU, END_OF_RAM, KB, START_OF_RAM};
-use std::collections::HashMap;
 
 #[cfg(feature = "debug")]
-type HitMap = once_cell::sync::Lazy<HashMap<u16, u8>>;
+pub mod ram_stats {
 
-#[cfg(feature = "debug")]
-static mut ADDRESS_HIT_COUNT: HitMap = HitMap::new(|| HashMap::new());
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    pub(super) enum RamAccessType {
+        Read,
+        Write,
+    }
+    use once_cell::sync::Lazy;
+    use std::collections::HashMap;
+
+    type HitMap = Lazy<HashMap<u16, Vec<RamAccessType>>>;
+
+    pub static mut ADDRESS_HIT_COUNT: HitMap = HitMap::new(|| HashMap::new());
+
+    fn access_hits(r#type: RamAccessType) -> HashMap<u16, usize> {
+        let mut hits = HashMap::new();
+        unsafe {
+            for (address, access_types) in ADDRESS_HIT_COUNT.iter() {
+                let count =
+                    access_types.iter().filter(|&&at| at == r#type).count();
+
+                if count > 0 {
+                    hits.insert(*address, count);
+                }
+            }
+        }
+        hits
+    }
+
+    pub fn read_access_hits() -> HashMap<u16, usize> {
+        access_hits(RamAccessType::Read)
+    }
+
+    pub fn write_access_hits() -> HashMap<u16, usize> {
+        access_hits(RamAccessType::Write)
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct BUS {
@@ -19,10 +53,6 @@ impl Default for BUS {
     }
 }
 
-pub fn get_addr_access_hit_count() -> HashMap<u16, u8> {
-    unsafe { ADDRESS_HIT_COUNT.clone() }
-}
-
 impl BUS {
     #[inline]
     pub fn clock(&mut self, cpu: &mut CPU) {
@@ -30,17 +60,6 @@ impl BUS {
             cpu.reset(self);
         }
         self.sys_clock_counter += 1;
-    }
-
-    #[cfg(feature = "debug")]
-    fn increase_addr_access_hit(addr: u16) {
-        unsafe {
-            if let Some(current_hits) = ADDRESS_HIT_COUNT.get(&addr) {
-                ADDRESS_HIT_COUNT.insert(addr, *current_hits + 1);
-            } else {
-                ADDRESS_HIT_COUNT.insert(addr, 1);
-            }
-        }
     }
 
     #[cfg(feature = "debug")]
@@ -86,7 +105,13 @@ impl BUS {
 
     #[inline]
     pub fn read(&self, addr: u16, _b_read_only: bool) -> u8 {
-        BUS::increase_addr_access_hit(addr);
+        #[cfg(feature = "debug")]
+        unsafe {
+            ram_stats::ADDRESS_HIT_COUNT
+                .entry(addr)
+                .or_insert_with(Vec::new)
+                .push(RamAccessType::Read);
+        }
 
         if addr >= START_OF_RAM && addr <= END_OF_RAM {
             return self.ram[addr as usize];
@@ -106,7 +131,14 @@ impl BUS {
             addr >= START_OF_RAM && addr <= END_OF_RAM,
             "can't write to address that is out of memory bounds"
         );
-        BUS::increase_addr_access_hit(addr);
+
+        #[cfg(feature = "debug")]
+        unsafe {
+            ram_stats::ADDRESS_HIT_COUNT
+                .entry(addr)
+                .or_insert_with(Vec::new)
+                .push(RamAccessType::Write);
+        }
         self.ram[addr as usize] = data;
     }
 }

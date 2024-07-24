@@ -102,8 +102,6 @@ fn test_mini_program(mut cpu: dh_cpu::CPU, mut bus: dh_bus::BUS) {
         CPU::disassemble(&mut bus, START, STOP);
 
     dbg!(disasm);
-
-    dbg!(dh_bus::get_addr_access_hit_count());
 }
 
 // #[rstest]

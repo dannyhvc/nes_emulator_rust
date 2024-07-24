@@ -3,12 +3,13 @@ use crate::components::dh_bus;
 use crate::components::dh_cpu::CPU;
 use crate::components::{dh_bus::BUS, KB};
 
+use iced::Application;
 use iced::{
     widget::{row, Container, Text},
-    Element, Sandbox, Settings,
+    Element, Settings,
 };
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum DebuggeeMessage {
     Start,
 }
@@ -19,26 +20,34 @@ pub struct Debuggees {
     bus: BUS,
 }
 
-impl Sandbox for Debuggees {
+impl Application for Debuggees {
     type Message = DebuggeeMessage;
+    type Executor = iced::executor::Default;
+    type Theme = iced::Theme;
+    type Flags = ();
 
-    fn new() -> Self {
+    fn new(_flags: Self::Flags) -> (Self, iced::Command<Self::Message>) {
         let mut cpu = CPU::new();
         let mut bus = BUS::new();
         CPU::reset(&mut cpu, &bus);
         mini_program(&mut cpu, &mut bus);
 
-        Self { cpu, bus }
+        (Self { cpu, bus }, iced::Command::none())
     }
 
     fn title(&self) -> String {
         "NES Debugging".into()
     }
 
-    fn update(&mut self, message: Self::Message) {
+    fn update(
+        &mut self,
+        message: Self::Message,
+    ) -> iced::Command<Self::Message> {
         match message {
             DebuggeeMessage::Start => println!("Session Started"),
         }
+
+        iced::Command::none()
     }
 
     fn view(&self) -> Element<'_, Self::Message> {
@@ -55,24 +64,28 @@ impl Sandbox for Debuggees {
             )),])
             .padding(100);
 
-        let mut heat_map: Vec<_> =
-            dh_bus::get_addr_access_hit_count().into_iter().collect();
-        heat_map.sort_by_key(|&(key, _)| key);
+        let r = dh_bus::ram_stats::read_access_hits();
+        let w = dh_bus::ram_stats::write_access_hits();
 
-        bus_col = bus_col.push(row![
-            Container::new(Text::new(format!("ADDR:"))).padding(5),
-            Container::new(Text::new(format!("DATA:"))).padding(5)
-        ]);
-        for (k, v) in heat_map.iter() {
-            bus_col = bus_col.push(row![
-                Container::new(Text::new(format!("{:4x}", k))).padding(5),
-                Container::new(Text::new(format!("{:4x}", v))).padding(5),
-            ])
-        }
+        // iced_table::table();
 
-        let scroll_area = iced::widget::Scrollable::new(bus_col);
+        Container::new(iced::widget::Scrollable::new(row![cpu_col,])).into()
+    }
 
-        Container::new(row![cpu_col, scroll_area]).into()
+    fn theme(&self) -> Self::Theme {
+        Self::Theme::default()
+    }
+
+    fn style(&self) -> <Self::Theme as iced::application::StyleSheet>::Style {
+        <Self::Theme as iced::application::StyleSheet>::Style::default()
+    }
+
+    fn subscription(&self) -> iced::Subscription<Self::Message> {
+        iced::Subscription::none()
+    }
+
+    fn scale_factor(&self) -> f64 {
+        1.0
     }
 }
 
@@ -104,14 +117,23 @@ fn mini_program(cpu: &mut CPU, mut bus: &mut BUS) {
         cpu.clock(&mut bus);
     }
 
-    let disasm: std::collections::HashMap<u16, String> =
+    let _disasm: std::collections::HashMap<u16, String> =
         CPU::disassemble(&mut bus, START, STOP);
 
-    dbg!(disasm);
-
-    dbg!(dh_bus::get_addr_access_hit_count());
+    let r = dh_bus::ram_stats::read_access_hits();
+    let w = dh_bus::ram_stats::write_access_hits();
 }
 
 pub fn run() {
-    Debuggees::run(Settings::default()).unwrap();
+    let settings = Settings::<()> {
+        window: iced::window::Settings {
+            size: iced::Size::new(800.0, 800.0),
+            resizable: true,
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+
+    // Run the application with custom settings
+    Debuggees::run(settings).unwrap();
 }
