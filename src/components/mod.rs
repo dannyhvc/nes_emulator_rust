@@ -1,8 +1,8 @@
 pub mod dh_bus;
 pub mod dh_cartridge;
 pub mod dh_cpu;
+pub mod dh_mappers;
 pub mod dh_ppu;
-pub mod mappers;
 pub mod types;
 
 use self::dh_cpu::CPU;

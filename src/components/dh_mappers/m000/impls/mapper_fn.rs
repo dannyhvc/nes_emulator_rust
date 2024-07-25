@@ -1,10 +1,16 @@
-use super::mapper::{self, MapperData};
+use std::marker::PhantomData;
 
-#[derive(Debug, Clone, Copy)]
-pub struct M000(MapperData);
-impl mapper::MapperFn for M000 {
+use crate::components::dh_mappers::{
+    m000::types::M000, traits::mapper_fn::MapperFn,
+};
+
+impl MapperFn for M000 {
     fn new(prg_bank: u8, chr_bank: u8) -> Self {
-        Self(MapperData { prg_bank, chr_bank })
+        M000 {
+            _marker: PhantomData,
+            chr_bank,
+            prg_bank,
+        }
     }
 
     fn allow_cpu_read(&self, addr: u16, mapped_addr: &mut u32) -> bool {
@@ -18,7 +24,7 @@ impl mapper::MapperFn for M000 {
         match addr {
             0x8000..=0xFFFF => {
                 let mapping: u32 =
-                    if self.0.prg_bank > 1 { 0x7FFF } else { 0x3FFF };
+                    if self.prg_bank > 1 { 0x7FFF } else { 0x3FFF };
                 *mapped_addr = addr as u32 & mapping;
                 true
             }
@@ -30,7 +36,7 @@ impl mapper::MapperFn for M000 {
         match addr {
             0x8000..=0xFFFF => {
                 let mapping: u32 =
-                    if self.0.prg_bank > 1 { 0x7FFF } else { 0x3FFF };
+                    if self.prg_bank > 1 { 0x7FFF } else { 0x3FFF };
                 *mapped_addr = addr as u32 & mapping;
                 true
             }
@@ -54,7 +60,7 @@ impl mapper::MapperFn for M000 {
 
     fn allow_ppu_write(&self, addr: u16, mapped_addr: &mut u32) -> bool {
         match addr {
-            0x0000..=0x1FFF if self.0.chr_bank == 0 => {
+            0x0000..=0x1FFF if self.chr_bank == 0 => {
                 *mapped_addr = addr as u32;
                 true
             }

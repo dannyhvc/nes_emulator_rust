@@ -1,7 +1,7 @@
 use crate::bs;
 use crate::components::dh_bus;
 use crate::components::dh_cpu::CPU;
-use crate::components::{dh_bus::BUS, KB};
+use crate::components::{dh_bus::bus::BUS, KB};
 
 use iced::Application;
 use iced::{
@@ -12,6 +12,7 @@ use iced::{
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum DebuggeeMessage {
     Start,
+    End,
 }
 
 #[derive(Debug, Clone)]
@@ -45,6 +46,7 @@ impl Application for Debuggees {
     ) -> iced::Command<Self::Message> {
         match message {
             DebuggeeMessage::Start => println!("Session Started"),
+            DebuggeeMessage::End => println!("Session Ended"),
         }
 
         iced::Command::none()

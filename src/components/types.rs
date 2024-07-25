@@ -1,4 +1,4 @@
-use super::{dh_bus::BUS, dh_cpu::CPU};
+use super::{dh_bus::bus::BUS, dh_cpu::CPU};
 
 /// ```no_run
 /// E = 0       Empty Default
