@@ -5,13 +5,20 @@ pub mod dh_mappers;
 pub mod dh_ppu;
 pub mod types;
 
-use self::dh_cpu::CPU;
-use self::types::AddrModeMneumonic;
+// cpu import
+use self::dh_cpu::cpu::CPU;
+
+// addressing mode imports
+use self::types::addr_mnuemonic::AddrModeMneumonic;
+use self::types::addr_modes::M6502AddrModes;
+
+// opcode mode imports
+use self::types::opcode_mneumonics::OpcodeMneumonic;
+use self::types::opcodes::M6502Opcodes;
+
+// instruction imports
+use self::types::ins_mneumonic::InstructionMneumonic;
 use self::types::CpuInstruction;
-use self::types::M6502AddrModes;
-use self::types::M6502Opcodes;
-use self::types::OpcodeMneumonic;
-use crate::components::types::InstructionMneumonic;
 
 const START_OF_RAM: u16 = 0x0000;
 const END_OF_RAM: u16 = 0xFFFF;
@@ -22,7 +29,7 @@ const TOP_BIT_THRESH: u16 = 0x0080;
 #[inline(always)]
 pub const fn KB(n: u32) -> usize {
     const SIZEOF_1KB: u32 = 2_u32.pow(10_u32); // 1024
-    return (n * SIZEOF_1KB) as usize;
+    (n * SIZEOF_1KB) as usize
 }
 
 /// stands for INSTRUCTION MNEUMONIC

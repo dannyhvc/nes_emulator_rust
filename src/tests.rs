@@ -1,15 +1,12 @@
 #![allow(non_snake_case)]
 use crate::{
     bs,
-    components::{
-        dh_bus::{self, BUS},
-        dh_cpu::{self, CPU},
-    },
+    components::{dh_bus::bus::BUS, dh_cpu::cpu::CPU},
 };
 use rstest::{fixture, rstest};
 
 #[fixture]
-fn cpu() -> dh_cpu::CPU {
+fn cpu() -> CPU {
     let mut cpu = CPU::new();
     let temp_bus = BUS::new();
     cpu.reset(&temp_bus);
@@ -18,12 +15,12 @@ fn cpu() -> dh_cpu::CPU {
 }
 
 #[fixture]
-fn bus() -> dh_bus::BUS {
+fn bus() -> BUS {
     BUS::new()
 }
 
 // #[rstest]
-fn test_clock(mut cpu: dh_cpu::CPU, mut bus: dh_bus::BUS) {
+fn test_clock(mut cpu: CPU, mut bus: BUS) {
     cpu.reset(&bus);
     for _ in 0..8 {
         cpu.clock(&mut bus);
@@ -32,7 +29,7 @@ fn test_clock(mut cpu: dh_cpu::CPU, mut bus: dh_bus::BUS) {
 }
 
 // #[rstest]
-fn test_LDA(mut cpu: dh_cpu::CPU, mut bus: dh_bus::BUS) {
+fn test_LDA(mut cpu: CPU, mut bus: BUS) {
     cpu.set_pc(0xFFFC);
     bus.write(cpu.pc(), 0xA9); // index 169/LDA/IMM of lookup table
 
@@ -43,7 +40,7 @@ fn test_LDA(mut cpu: dh_cpu::CPU, mut bus: dh_bus::BUS) {
 }
 
 // #[rstest]
-fn test_disassemble(mut cpu: dh_cpu::CPU, mut bus: dh_bus::BUS) {
+fn test_disassemble(mut cpu: CPU, mut bus: BUS) {
     const START: u16 = 0x0000;
     const STOP: u16 = 0x000f;
 
@@ -70,7 +67,7 @@ fn test_disassemble(mut cpu: dh_cpu::CPU, mut bus: dh_bus::BUS) {
 /// - `$C00C`  `85` `04`      ;STA $04   Store the result in memory location $04
 /// - `$C00E`  `4C` `00` `C0` ;JMP $C000 Jump back to the instruction at memory location $C000
 #[rstest]
-fn test_mini_program(mut cpu: dh_cpu::CPU, mut bus: dh_bus::BUS) {
+fn test_mini_program(mut cpu: CPU, mut bus: BUS) {
     const START: u16 = 0xC000;
     const STOP: u16 = 0xC00E;
 

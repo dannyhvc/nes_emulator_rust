@@ -1,12 +1,13 @@
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(super) enum RamAccessType {
-    Read,
-    Write,
-}
 use once_cell::sync::Lazy;
 use std::collections::HashMap;
 
 type HitMap = Lazy<HashMap<u16, Vec<RamAccessType>>>;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum RamAccessType {
+    Read,
+    Write,
+}
 
 pub(crate) static mut ADDRESS_HIT_COUNT: HitMap =
     HitMap::new(|| HashMap::new());

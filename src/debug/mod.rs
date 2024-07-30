@@ -1,6 +1,6 @@
 use crate::bs;
 use crate::components::dh_bus;
-use crate::components::dh_cpu::CPU;
+use crate::components::dh_cpu::cpu::CPU;
 use crate::components::{dh_bus::bus::BUS, KB};
 
 use iced::Application;

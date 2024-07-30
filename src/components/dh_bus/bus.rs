@@ -1,6 +1,6 @@
 use crate::components::dh_bus::ram_stats::{self, RamAccessType};
 
-use crate::components::dh_cpu::CPU;
+use crate::components::dh_cpu::cpu::CPU;
 use crate::components::{END_OF_RAM, KB, START_OF_RAM};
 
 #[derive(Debug, Clone)]
