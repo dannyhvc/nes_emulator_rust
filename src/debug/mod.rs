@@ -1,97 +1,25 @@
+mod impls;
+
 use crate::bs;
-use crate::components::dh_bus;
-use crate::components::dh_cpu::cpu::CPU;
-use crate::components::{dh_bus::bus::BUS, KB};
+use iced::{Application, Settings};
 
-use iced::Application;
-use iced::{
-    widget::{row, Container, Text},
-    Element, Settings,
-};
-
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum DebuggeeMessage {
     Start,
+    KeyPressed(iced::keyboard::Key),
     End,
 }
 
 #[derive(Debug, Clone)]
 pub struct Debuggees {
-    cpu: CPU,
-    bus: BUS,
+    cpu: crate::components::dh_cpu::cpu::CPU,
+    bus: crate::components::dh_bus::bus::BUS,
 }
 
-impl Application for Debuggees {
-    type Message = DebuggeeMessage;
-    type Executor = iced::executor::Default;
-    type Theme = iced::Theme;
-    type Flags = ();
-
-    fn new(_flags: Self::Flags) -> (Self, iced::Command<Self::Message>) {
-        let mut cpu = CPU::new();
-        let mut bus = BUS::new();
-        CPU::reset(&mut cpu, &bus);
-        mini_program(&mut cpu, &mut bus);
-
-        (Self { cpu, bus }, iced::Command::none())
-    }
-
-    fn title(&self) -> String {
-        "NES Debugging".into()
-    }
-
-    fn update(
-        &mut self,
-        message: Self::Message,
-    ) -> iced::Command<Self::Message> {
-        match message {
-            DebuggeeMessage::Start => println!("Session Started"),
-            DebuggeeMessage::End => println!("Session Ended"),
-        }
-
-        iced::Command::none()
-    }
-
-    fn view(&self) -> Element<'_, Self::Message> {
-        let cpu_col = iced::widget::Column::<Self::Message>::new()
-            .push(Text::new("CPU DATA").size(30))
-            .push(row!(Text::new(format!("{}", self.cpu)).size(20)))
-            .padding(100);
-
-        let mut bus_col = iced::widget::Column::<Self::Message>::new()
-            .push(Text::new("BUS DATA").size(30))
-            .push(row![Text::new(format!(
-                "RAM: {}KB",
-                self.bus.ram().len() / KB(1)
-            )),])
-            .padding(100);
-
-        let r = dh_bus::ram_stats::read_access_hits();
-        let w = dh_bus::ram_stats::write_access_hits();
-
-        // iced_table::table();
-
-        Container::new(iced::widget::Scrollable::new(row![cpu_col,])).into()
-    }
-
-    fn theme(&self) -> Self::Theme {
-        Self::Theme::default()
-    }
-
-    fn style(&self) -> <Self::Theme as iced::application::StyleSheet>::Style {
-        <Self::Theme as iced::application::StyleSheet>::Style::default()
-    }
-
-    fn subscription(&self) -> iced::Subscription<Self::Message> {
-        iced::Subscription::none()
-    }
-
-    fn scale_factor(&self) -> f64 {
-        1.0
-    }
-}
-
-fn mini_program(cpu: &mut CPU, mut bus: &mut BUS) {
+fn mini_program(
+    cpu: &mut crate::components::dh_cpu::cpu::CPU,
+    mut bus: &mut crate::components::dh_bus::bus::BUS,
+) {
     const START: u16 = 0xC000;
     const STOP: u16 = 0xC00E;
 
@@ -120,10 +48,10 @@ fn mini_program(cpu: &mut CPU, mut bus: &mut BUS) {
     }
 
     let _disasm: std::collections::HashMap<u16, String> =
-        CPU::disassemble(&mut bus, START, STOP);
+        crate::components::dh_cpu::cpu::CPU::disassemble(&mut bus, START, STOP);
 
-    let r = dh_bus::ram_stats::read_access_hits();
-    let w = dh_bus::ram_stats::write_access_hits();
+    let _r = crate::components::dh_bus::ram_stats::read_access_hits();
+    let _w = crate::components::dh_bus::ram_stats::write_access_hits();
 }
 
 pub fn run() {
@@ -131,6 +59,7 @@ pub fn run() {
         window: iced::window::Settings {
             size: iced::Size::new(800.0, 800.0),
             resizable: true,
+            exit_on_close_request: true,
             ..Default::default()
         },
         ..Default::default()
