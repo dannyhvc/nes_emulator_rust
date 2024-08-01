@@ -20,35 +20,68 @@ fn mini_program(
     cpu: &mut crate::components::dh_cpu::cpu::CPU,
     mut bus: &mut crate::components::dh_bus::bus::BUS,
 ) {
-    const START: u16 = 0xC000;
-    const STOP: u16 = 0xC00E;
+    const START: u16 = 0x0000;
+    const STOP: u16 = 0xFFFF;
 
-    // "preloaded" data in ram
-    bus.write(0x00, 0xA);
-    bus.write(0x01, 0x14);
-    bus.write(0x02, 0x1E);
-    bus.write(0x03, 0x28);
-
+    /*
+     * A2 0A       LDX #10
+     * 8E 00 00    STX $0000
+     * A2 03       LDX #3
+     * 8E 01 00    STX $0001
+     * AC 00 00    LDY $0000
+     * A9 00       LDA #0
+     * 18          CLC
+     * 6D 01 00    ADC $0001
+     * 88          DEY
+     * D0 FA       BNE loop -- FA is the relative offset for the branch
+     * 8D 02 00    STA $0002
+     * EA          NOP
+     * EA          NOP
+     * EA          NOP
+     */
     let ttape = bs![
-        //  addr        opc   operand(s)
-        bs![0xC000_u16, 0xA5, 0x0],
-        bs![0xC002_u16, 0x85, 0x2],
-        bs![0xC004_u16, 0xA5, 0x1],
-        bs![0xC006_u16, 0x85, 0x3],
-        bs![0xC008_u16, 0xA5, 0x2],
-        bs![0xC00A_u16, 0x65, 0x3],
-        bs![0xC00C_u16, 0x85, 0x4],
-        bs![0xC00E_u16, 0x4C, 0x00, 0x0C]
+        bs![0x8000, 0xA2, 0x0A],
+        bs![0x8002, 0x8E, 0x00, 0x00],
+        bs![0x8005, 0xA2, 0x03],
+        bs![0x8007, 0x8E, 0x01, 0x00],
+        bs![0x800A, 0xAC, 0x00, 0x00],
+        bs![0x800D, 0xA9, 0x00],
+        bs![0x800F, 0x18],
+        bs![0x8010, 0x6D, 0x01, 0x00],
+        bs![0x8040, 0x88],
+        bs![0x8050, 0xD0, 0xFA],
+        bs![0x8070, 0x8D, 0x02, 0x00],
+        bs![0x80A0, 0xEA],
+        bs![0x80B0, 0xEA],
+        bs![0x80C0, 0xEA]
     ];
 
-    // is there a better way to do this?
-    bus.load_instruction_mem(ttape);
-    for _ in 0..8 {
-        cpu.clock(&mut bus);
-    }
+    // Set reset vector
+    bus.write(0xFFFC, 0x00);
+    bus.write(0xFFFD, 0x80);
 
-    let _disasm: std::collections::HashMap<u16, String> =
+    // is there a better way to do this?
+    bus.load_instruction_mem(ttape.clone());
+
+    let disasm: std::collections::HashMap<u16, String> =
         crate::components::dh_cpu::cpu::CPU::disassemble(&mut bus, START, STOP);
+    let disasm: Vec<_> = disasm
+        .iter()
+        .filter(|&(k, _v)| {
+            let mut retval = false;
+            ttape.iter().for_each(|ins| {
+                if *k == ins[0] {
+                    retval = true;
+                }
+            });
+
+            retval
+        })
+        .collect();
+
+    dbg!(disasm);
+
+    cpu.reset(&bus);
 
     let _r = crate::components::dh_bus::ram_stats::read_access_hits();
     let _w = crate::components::dh_bus::ram_stats::write_access_hits();

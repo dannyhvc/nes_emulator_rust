@@ -3,8 +3,6 @@ use std::collections::HashMap;
 use crate::components::types::CpuInstruction;
 
 use crate::components::dh_bus::bus::BUS;
-use crate::components::types::addr_modes::M6502AddrModes;
-use crate::components::types::opcodes::M6502Opcodes;
 use crate::components::types::{addr_mnuemonic::AddrModeMneumonic, CpuFlags};
 use crate::components::LOOKUP_TABLE;
 
@@ -159,7 +157,7 @@ impl CPU {
         let mut address: u32 = start.into();
         let mut _value: u8;
         let mut low: u8 = 0;
-        let mut _high: u8;
+        let mut high: u8;
         let mut line_address: u16;
 
         // Create a HashMap to store the resulting instructions with their corresponding line address.
@@ -194,9 +192,10 @@ impl CPU {
                 AddrModeMneumonic::IMM => {
                     _value = bus.read(address as u16, true);
                     address += 1;
-                    _high = 0x00;
+                    high = 0x00;
                     // let string_rep = format!("#${} {{imm}}", helpers::to_hex(low as u32, 2));
-                    let string_rep: String = format!("#${:x} {{imm}}", low);
+                    let string_rep: String =
+                        format!("#${:x}{:x} {{imm}}", low, high);
                     instruction_address.push_str(&string_rep);
                 }
 
@@ -204,8 +203,9 @@ impl CPU {
                 AddrModeMneumonic::ZP0 => {
                     low = bus.read(address as u16, true);
                     address += 1;
-                    _high = 0x00;
-                    let string_rep: String = format!("${:x} {{zp0}}", low);
+                    high = 0x00;
+                    let string_rep: String =
+                        format!("${:x}{:x} {{zp0}}", low, high);
                     instruction_address.push_str(&string_rep);
                 }
 
@@ -213,7 +213,7 @@ impl CPU {
                 AddrModeMneumonic::ZPX => {
                     low = bus.read(address as u16, true);
                     address += 1;
-                    _high = 0x00;
+                    high = 0x00;
                     let string_rep: String = format!("${:x}, X {{zpx}}", low);
                     instruction_address.push_str(&string_rep);
                 }
@@ -222,7 +222,7 @@ impl CPU {
                 AddrModeMneumonic::ZPY => {
                     low = bus.read(address as u16, true);
                     address += 1;
-                    _high = 0x00;
+                    high = 0x00;
                     let string_rep: String = format!("${:x}, Y {{zpy}}", low);
                     instruction_address.push_str(&string_rep);
                 }
@@ -232,7 +232,7 @@ impl CPU {
                 AddrModeMneumonic::IZX => {
                     low = bus.read(address as u16, true);
                     address += 1;
-                    _high = 0x00;
+                    high = 0x00;
                     let string_rep: String = format!("(${:x}, X) {{izx}}", low);
                     instruction_address.push_str(&string_rep);
                 }
@@ -242,7 +242,7 @@ impl CPU {
                 AddrModeMneumonic::IZY => {
                     low = bus.read(address as u16, true);
                     address += 1;
-                    _high = 0x00;
+                    high = 0x00;
                     let string_rep: String = format!("(${:x}), Y {{izy}}", low);
                     instruction_address.push_str(&string_rep);
                 }
@@ -252,11 +252,11 @@ impl CPU {
                 AddrModeMneumonic::ABS => {
                     low = bus.read(address as u16, false);
                     address += 1;
-                    _high = bus.read(address as u16, false);
+                    high = bus.read(address as u16, false);
                     address += 1;
                     let string_rep: String = format!(
                         "${:x} {{abs}}",
-                        (((_high as u32) << 8) | low as u32)
+                        (((high as u32) << 8) | low as u32)
                     );
                     instruction_address.push_str(&string_rep);
                 }
@@ -266,11 +266,11 @@ impl CPU {
                 AddrModeMneumonic::ABX => {
                     low = bus.read(address as u16, false);
                     address += 1;
-                    _high = bus.read(address as u16, false);
+                    high = bus.read(address as u16, false);
                     address += 1;
                     let string_rep: String = format!(
                         "${:x} {{abx}}",
-                        (((_high as u32) << 8) | low as u32)
+                        (((high as u32) << 8) | low as u32)
                     );
                     instruction_address.push_str(&string_rep);
                 }
@@ -280,11 +280,11 @@ impl CPU {
                 AddrModeMneumonic::ABY => {
                     low = bus.read(address as u16, false);
                     address += 1;
-                    _high = bus.read(address as u16, false);
+                    high = bus.read(address as u16, false);
                     address += 1;
                     let string_rep: String = format!(
                         "${:x} {{aby}}",
-                        (((_high as u32) << 8) | low as u32)
+                        (((high as u32) << 8) | low as u32)
                     );
                     instruction_address.push_str(&string_rep);
                 }
@@ -294,11 +294,11 @@ impl CPU {
                 AddrModeMneumonic::IND => {
                     low = bus.read(address as u16, false);
                     address += 1;
-                    _high = bus.read(address as u16, false);
+                    high = bus.read(address as u16, false);
                     address += 1;
                     let string_rep: String = format!(
                         "(${:x}) {{ind}}",
-                        (((_high as u32) << 8) | low as u32)
+                        (((high as u32) << 8) | low as u32)
                     );
                     instruction_address.push_str(&string_rep);
                 }

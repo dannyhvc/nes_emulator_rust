@@ -30,26 +30,27 @@ impl BUS {
         const OPCODE_INDEX: usize = 1;
 
         // go through each instruction
-        for ins in data.iter() {
-            let instruction_and_operands_bytes: &[u16] = ins.iter().as_slice();
-            let mut address: u16 =
-                instruction_and_operands_bytes[ADDRESS_INDEX];
-            let opcode = instruction_and_operands_bytes[OPCODE_INDEX] as u8;
+        data.iter().for_each(|instruction| {
+            let code_segment: &[u16] = instruction.iter().as_slice();
+            let mut address: u16 = code_segment[ADDRESS_INDEX];
+            let opcode = code_segment[OPCODE_INDEX] as u8;
 
             // first part of the instruction is always the opcode address
             self.write(address, opcode);
-            // move to the probable first operand
-            address += 1;
 
-            if instruction_and_operands_bytes.len() > 2 {
-                let operands = &instruction_and_operands_bytes[2..];
+            if code_segment.len() > 2 {
+                // move to the probable first operand
+                address += 1;
+
+                // get the operands
+                let operands = &code_segment[2..];
                 operands.into_iter().for_each(|operand| {
                     // write each operand to the resulting incremented address
                     self.write(address, *operand as u8);
                     address += 1;
                 });
             }
-        }
+        });
     }
 
     /// Creates a new [`Bus`]. With 2Kb of MOS 6502 memory
