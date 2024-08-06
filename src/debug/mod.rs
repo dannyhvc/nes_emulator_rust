@@ -16,10 +16,7 @@ pub struct Debuggees {
     bus: crate::components::dh_bus::bus::BUS,
 }
 
-fn mini_program(
-    cpu: &mut crate::components::dh_cpu::cpu::CPU,
-    mut bus: &mut crate::components::dh_bus::bus::BUS,
-) {
+fn mini_program(Debuggees { cpu, bus }: &mut Debuggees) {
     const START: u16 = 0x0000;
     const STOP: u16 = 0xFFFF;
 
@@ -56,15 +53,17 @@ fn mini_program(
         bs![0x80C0, 0xEA]
     ];
 
-    // Set reset vector
+    // Set reset vector (where the program will start exectuing from)
     bus.write(0xFFFC, 0x00);
     bus.write(0xFFFD, 0x80);
 
     // is there a better way to do this?
+    // NOTE this will add count of WRITE for all program instruction addresses.
     bus.load_instruction_mem(ttape.clone());
 
+    // NOTE this will add count of READ for all locations between START and STOP
     let disasm: std::collections::HashMap<u16, String> =
-        crate::components::dh_cpu::cpu::CPU::disassemble(&mut bus, START, STOP);
+        crate::components::dh_cpu::cpu::CPU::disassemble(bus, START, STOP);
     let disasm: Vec<_> = disasm
         .iter()
         .filter(|&(k, _v)| {
@@ -80,11 +79,7 @@ fn mini_program(
         .collect();
 
     dbg!(disasm);
-
     cpu.reset(&bus);
-
-    let _r = crate::components::dh_bus::ram_stats::read_access_hits();
-    let _w = crate::components::dh_bus::ram_stats::write_access_hits();
 }
 
 pub fn run() {

@@ -24,6 +24,30 @@ use crate::components::LOOKUP_TABLE;
 /// * `opcode` - Is the instruction byte
 /// * `cycles` - Counts how many cycles the instruction has remaining
 /// * `clock_count` - A global accumulation of the number of clocks
+///
+/// ## How to start running a program
+/// In the MOS 6502 CPU, the reset vector is a specific memory address that the
+/// CPU reads to determine where to start executing code after a reset. The reset
+/// vector is stored in two consecutive memory locations: `0xFFFC` and `0xFFFD`.
+///
+/// Here's how it works:
+///
+/// 1. **Low Byte**: The value at address `0xFFFC` is the low byte of the reset vector.
+/// 2. **High Byte**: The value at address `0xFFFD` is the high byte of the reset vector.
+///
+/// Example:
+/// ```rust ignore
+/// bus.write(0xFFFC, 0x00);
+/// bus.write(0xFFFD, 0x80);
+/// ```
+/// The value 0x00 is written to 0xFFFC (low byte).
+/// The value 0x80 is written to 0xFFFD (high byte).
+/// When combined, these two bytes form the address 0x8000. This means that after
+/// a reset, the 6502 CPU will start executing code from the address 0x800012.
+///
+/// This mechanism allows the CPU to know where to begin execution after a reset,
+/// ensuring that it can properly initialize and start running the program.
+///
 #[derive(Debug, Clone)]
 pub struct CPU {
     // cpu Core registers, exposed as public here for ease of access from external

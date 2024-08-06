@@ -1,7 +1,7 @@
 use iced::keyboard::key;
-use iced::widget::{row, Container, Text};
+use iced::widget::{column, row, Container, Text};
+use iced::Application;
 use iced::Element;
-use iced::{Application, Command};
 
 use super::{mini_program, DebuggeeMessage, Debuggees};
 use crate::components::dh_bus::bus::BUS;
@@ -14,12 +14,14 @@ impl Application for Debuggees {
     type Flags = ();
 
     fn new(_flags: Self::Flags) -> (Self, iced::Command<Self::Message>) {
-        let mut cpu = CPU::new();
-        let mut bus = BUS::new();
-        CPU::reset(&mut cpu, &bus);
-        mini_program(&mut cpu, &mut bus);
+        let mut this = Self {
+            cpu: CPU::new(),
+            bus: BUS::new(),
+        };
+        CPU::reset(&mut this.cpu, &this.bus);
+        mini_program(&mut this);
 
-        (Self { cpu, bus }, iced::Command::none())
+        (this, iced::Command::none())
     }
 
     fn title(&self) -> String {
@@ -84,7 +86,7 @@ fn debug_cpu_view(app: &Debuggees) -> Container<DebuggeeMessage> {
         .push(row!(Text::new(format!("{}", app.cpu)).size(20)))
         .padding(100);
 
-    let mut bus_col = iced::widget::Column::<DebuggeeMessage>::new()
+    let bus_col = iced::widget::Column::<DebuggeeMessage>::new()
         .push(Text::new("BUS DATA").size(30))
         .push(row![Text::new(format!(
             "RAM: {}KB",
@@ -92,10 +94,56 @@ fn debug_cpu_view(app: &Debuggees) -> Container<DebuggeeMessage> {
         )),])
         .padding(100);
 
-    let r = crate::components::dh_bus::ram_stats::read_access_hits();
-    let w = crate::components::dh_bus::ram_stats::write_access_hits();
+    // collecting kv's into vec and sorting by key (address) s.t. it is a sorted
+    // hashmap. Doing this for both Read and Write on ram so that we can display
+    // them in a column and organize the them by access category
+
+    // read col init
+    let read_col = {
+        let mut read_col: iced::widget::Column<DebuggeeMessage> =
+            column!(Text::new("Read")).padding(10);
+        let mut r: Vec<_> =
+            crate::components::dh_bus::ram_stats::read_access_hits()
+                .into_iter()
+                .filter(|&(_k, v)| v > 1)
+                .collect();
+        r.sort_by_key(|&(key, _)| key);
+
+        for &(k_read, v_read) in r.iter() {
+            read_col = read_col
+                .push(column!(Text::new(format!("@{:x} #{}", k_read, v_read))))
+                .padding(5);
+        }
+        read_col
+    };
+
+    // write col init
+    let write_col = {
+        let mut write_col: iced::widget::Column<DebuggeeMessage> =
+            column!(Text::new("Write")).padding(10);
+
+        let mut w: Vec<_> =
+            crate::components::dh_bus::ram_stats::write_access_hits()
+                .into_iter()
+                .filter(|&(_k, v)| v > 1)
+                .collect();
+        w.sort_by_key(|&(key, _)| key);
+
+        for &(k_write, v_write) in w.iter() {
+            write_col = write_col
+                .push(column!(Text::new(format!(
+                    "@{:x} #{}",
+                    k_write, v_write
+                ))))
+                .padding(5);
+        }
+        write_col
+    };
 
     // iced_table::table();
 
-    Container::new(iced::widget::Scrollable::new(row![cpu_col,])).into()
+    Container::new(iced::widget::Scrollable::new(row![
+        cpu_col, bus_col, read_col, write_col
+    ]))
+    .into()
 }
