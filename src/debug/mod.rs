@@ -1,31 +1,14 @@
-mod impls;
-
 use crate::bs;
 use iced::{Application, Settings};
+use types::dh_debuggee::debuggee;
 
-#[derive(Debug, Clone, PartialEq)]
-pub enum DebuggeeMessage {
-    Start,
-    KeyPressed(iced::keyboard::Key),
-    SyncHeader(iced::widget::scrollable::AbsoluteOffset),
-    End,
-}
+pub mod styles;
+pub mod types;
+pub mod widgets;
 
-#[derive(Debug, Clone)]
-pub struct Utilities {
-    table_header_id: iced::widget::scrollable::Id,
-    table_body_id: iced::widget::scrollable::Id,
-    table_footer_id: iced::widget::scrollable::Id,
-}
-
-#[derive(Debug, Clone)]
-pub struct Debuggees {
-    cpu: crate::components::dh_cpu::cpu::CPU,
-    bus: crate::components::dh_bus::bus::BUS,
-    util: Utilities,
-}
-
-fn mini_program(Debuggees { cpu, bus, .. }: &mut Debuggees) {
+fn mini_program(
+    debuggee::Debuggees { cpu, bus, .. }: &mut debuggee::Debuggees,
+) {
     const START: u16 = 0x0000;
     const STOP: u16 = 0xFFFF;
 
@@ -103,5 +86,5 @@ pub fn run() {
     };
 
     // Run the application with custom settings
-    Debuggees::run(settings).unwrap();
+    debuggee::Debuggees::run(settings).unwrap();
 }

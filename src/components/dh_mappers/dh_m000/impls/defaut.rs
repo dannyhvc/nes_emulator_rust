@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use crate::components::dh_mappers::m000::types::M000;
+use crate::components::dh_mappers::dh_m000::m000::M000;
 
 // impl Default for M000 {
 //     fn default() -> Self {

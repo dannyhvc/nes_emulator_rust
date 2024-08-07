@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 
 use crate::components::dh_mappers::{
-    m000::types::M000, traits::mapper_fn::MapperFn,
+    dh_m000::m000::M000, traits::mapper_fn::MapperFn,
 };
 
 impl MapperFn for M000 {

@@ -1,13 +1,21 @@
-pub mod views;
-
+// iced imports
 use iced::keyboard::key;
 use iced::widget::row;
 use iced::Application;
 use iced::Element;
 
-use super::{mini_program, DebuggeeMessage, Debuggees};
+// nes components
 use crate::components::dh_bus::bus::BUS;
 use crate::components::dh_cpu::cpu::CPU;
+
+// debug imports
+use crate::debug::mini_program;
+use crate::debug::types::dh_debuggee::debuggee::Debuggees;
+use crate::debug::types::dh_debuggee_message::DebuggeeMessage;
+use crate::debug::types::utilities::Utilities;
+use crate::debug::widgets::cpu_monitor_view::debug_cpu_view;
+use crate::debug::widgets::ram_widgets::read_hits::ram_read_hit_view;
+use crate::debug::widgets::ram_widgets::write_hits::ram_write_hit_view;
 
 impl Application for Debuggees {
     type Message = DebuggeeMessage;
@@ -19,7 +27,7 @@ impl Application for Debuggees {
         let mut this = Self {
             cpu: CPU::new(),
             bus: BUS::new(),
-            util: crate::debug::Utilities {
+            util: Utilities {
                 table_header_id: iced::widget::scrollable::Id::unique(),
                 table_body_id: iced::widget::scrollable::Id::unique(),
                 table_footer_id: iced::widget::scrollable::Id::unique(),
@@ -96,10 +104,10 @@ impl Application for Debuggees {
 
     fn view(&self) -> Element<'_, Self::Message> {
         let res = iced::widget::responsive(|_s: iced::Size| {
-            let cpu_debug = views::debug_cpu_view(self);
-            let read_col = views::ram_read_hit_view();
+            let cpu_debug = debug_cpu_view(self);
+            let read_col = ram_read_hit_view();
             // write col init
-            let write_col = views::ram_write_hit_view();
+            let write_col = ram_write_hit_view();
 
             row! {
                 cpu_debug,

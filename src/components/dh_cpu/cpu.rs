@@ -43,7 +43,7 @@ use crate::components::{LOOKUP_TABLE, LOW_BIT_HIGH_BYTE, LOW_BYTE};
 /// The value 0x00 is written to 0xFFFC (low byte).
 /// The value 0x80 is written to 0xFFFD (high byte).
 /// When combined, these two bytes form the address 0x8000. This means that after
-/// a reset, the 6502 CPU will start executing code from the address 0x800012.
+/// a reset, the 6502 CPU will start executing code from the address 0x8000.
 ///
 /// This mechanism allows the CPU to know where to begin execution after a reset,
 /// ensuring that it can properly initialize and start running the program.
@@ -78,62 +78,147 @@ impl CPU {
         self.abs
     }
 
+    /// Handles the Non-Maskable Interrupt (NMI) for the CPU.
+    ///
+    /// This function performs the following steps:
+    /// 1. Pushes the high byte of the program counter (PC) onto the stack.
+    /// 2. Updates the stack pointer (SP).
+    /// 3. Sets or clears the CPU flags B, U, and I.
+    /// 4. Pushes the status register onto the stack.
+    /// 5. Updates the stack pointer (SP).
+    /// 6. Sets the absolute address to the Non-Maskable Interrupt Vector.
+    /// 7. Reads the new program counter (PC) address from the bus.
+    /// 8. Updates the program counter (PC).
+    /// 9. Sets the number of cycles for the NMI.
+    ///
+    /// # Parameters
+    ///
+    /// - `bus`: A mutable reference to the system bus.
+    ///
+    /// # Example
+    ///
+    /// ```rust ignore
+    /// let mut cpu = Cpu::new();
+    /// let mut bus = Bus::new();
+    /// cpu.nmi(&mut bus);
+    /// ```
+    ///
+    /// # Notes
+    ///
+    /// - The NMI is a high-priority interrupt that cannot be ignored by the CPU.
+    /// - This function assumes that the stack pointer (SP) and other CPU registers are correctly initialized.
+    ///
+    /// # Errors
+    ///
+    /// This function does not return errors but may cause unexpected behavior if the system bus or CPU state is incorrect.
     pub fn nmi(&mut self, bus: &mut BUS) {
+        // Push the high byte of the PC onto the stack
         bus.write(
             LOW_BIT_HIGH_BYTE + self.sp as u16,
-            (self.pc as u8 >> 8) & LOW_BYTE as u8,
+            ((self.pc as u32 >> 8) & LOW_BYTE as u32) as u8,
         );
         self.sp.checked_sub(1).map(|v| self.sp = v).unwrap();
 
+        // Set or clear CPU flags
         self.set_flag(CpuFlags::B, false);
         self.set_flag(CpuFlags::U, true);
         self.set_flag(CpuFlags::I, true);
 
+        // Push the status register onto the stack
         let addr = LOW_BIT_HIGH_BYTE.checked_add(self.sp.into()).unwrap();
         bus.write(addr, self.status);
         self.sp.checked_sub(1).map(|v| self.sp = v).unwrap();
 
-        self.abs = 0xFFFA;
+        // Set the absolute address to the Non-Maskable Interrupt Vector
+        self.abs = crate::components::NON_MASKABLE_INTERUPT_VECTOR;
 
+        // Read the new PC address from the bus
         let low = bus.read(self.abs + 0, false);
         let high = bus.read(self.abs + 1, false);
 
-        self.pc = ((high << 8) | low).into();
+        // Update the PC and set the number of cycles
+        self.pc = (((high as u32) << 8) | low as u32) as u16;
         self.cycles = 8;
     }
 
+    /// Handles the Interrupt Request (IRQ) for the CPU.
+    ///
+    /// This function performs the following steps if the interrupt disable flag (I) is not set:
+    /// 1. Pushes the high byte of the program counter (PC) onto the stack.
+    /// 2. Updates the stack pointer (SP).
+    /// 3. Pushes the low byte of the program counter (PC) onto the stack.
+    /// 4. Updates the stack pointer (SP).
+    /// 5. Sets or clears the CPU flags B, U, and I.
+    /// 6. Pushes the status register onto the stack.
+    /// 7. Updates the stack pointer (SP).
+    /// 8. Sets the absolute address to the Interrupt Vector.
+    /// 9. Reads the new program counter (PC) address from the bus.
+    /// 10. Updates the program counter (PC).
+    /// 11. Sets the number of cycles for the IRQ.
+    ///
+    /// # Parameters
+    ///
+    /// - `bus`: A mutable reference to the system bus.
+    ///
+    /// # Example
+    ///
+    /// ```rust ignore
+    /// let mut cpu = Cpu::new();
+    /// let mut bus = Bus::new();
+    /// cpu.irq(&mut bus);
+    /// ```
+    ///
+    /// # Notes
+    ///
+    /// - The IRQ is a lower-priority interrupt compared to the Non-Maskable Interrupt (NMI).
+    /// - This function assumes that the stack pointer (SP) and other CPU registers are correctly initialized.
+    /// - If the interrupt disable flag (I) is set, the IRQ will be ignored.
+    ///
+    /// # Errors
+    ///
+    /// This function does not return errors but may cause unexpected behavior if the system bus or CPU state is incorrect.
     pub fn irq(&mut self, bus: &mut BUS) {
         if self.get_flag(CpuFlags::I) == 0 {
+            // Push the high byte of the PC onto the stack
             let addr = LOW_BIT_HIGH_BYTE.checked_add(self.sp.into()).unwrap();
             bus.write(addr, (self.pc >> 8 & LOW_BYTE) as u8);
             self.sp.checked_sub(1).map(|v| self.sp = v).unwrap();
+
+            // Push the low byte of the PC onto the stack
             let addr = LOW_BIT_HIGH_BYTE.checked_add(self.sp.into()).unwrap();
             bus.write(addr, (self.pc & LOW_BYTE) as u8);
             self.sp.checked_sub(1).map(|v| self.sp = v).unwrap();
 
+            // Set or clear CPU flags
             self.set_flag(CpuFlags::B, false);
             self.set_flag(CpuFlags::U, true);
             self.set_flag(CpuFlags::I, true);
+
+            // Push the status register onto the stack
             let addr = LOW_BIT_HIGH_BYTE.checked_add(self.sp.into()).unwrap();
             bus.write(addr, self.status);
             self.sp.checked_sub(1).map(|v| self.sp = v).unwrap();
 
-            self.abs = 0xFFFE;
+            // Set the absolute address to the Interrupt Vector
+            self.abs = crate::components::INTERUPT_VECTOR;
 
+            // Read the new PC address from the bus
             let low = bus.read(self.abs + 0, false);
             let high = bus.read(self.abs + 1, false);
 
-            self.pc = ((high << 8) | low).into();
+            // Update the PC and set the number of cycles
+            self.pc = (((high as u32) << 8) | low as u32) as u16;
             self.cycles = 7;
         }
     }
 
-    // Simulates a clock cycle of the 6502 CPU.
+    /// Simulates a clock cycle of the 6502 CPU.
     ///
-    /// This function is responsible for fetching and executing the current instruction pointed to by the program counter (PC) of the CPU.
-    /// It reads the opcode from memory using the bus, sets the U flag, and advances the PC.
-    /// It then looks up the number of cycles required to execute the instruction from a lookup table, adds any additional cycles required,
-    /// and updates the CPU's cycle count accordingly.
+    /// This function is responsible for fetching and executing the current instruction
+    /// pointed to by the program counter (PC) of the CPU. It reads the opcode from memory
+    /// using the bus, sets the U flag, and advances the PC. It then looks up the number
+    /// of cycles required to execute the instruction from a lookup table, adds any
+    /// additional cycles required, and updates the CPU's cycle count accordingly.
     ///
     /// # Arguments
     ///
@@ -141,25 +226,41 @@ impl CPU {
     ///
     /// # Examples
     ///
-    /// ```no_run
+    /// ```rust ignore
     /// let mut cpu = M6502::new();
     /// let mut bus = Bus::new();
     /// cpu.clock(&mut bus);
     /// ```
+    ///
+    /// # Notes
+    ///
+    /// - The `U` flag (unused flag) is often set during operations.
+    /// - The cycle count is determined by looking up the instruction in a lookup table and
+    ///   adding any additional cycles required by the instruction and its addressing mode.
+    /// - If the "debug" feature is enabled, the instruction will be printed to the console.
     pub fn clock(&mut self, bus: &mut BUS) {
         if self.complete() {
+            // Fetch the opcode from memory using the program counter
             self.opcode = bus.read(self.pc, true);
+            // Set the U flag (unused flag, often set during operations)
             self.set_flag(CpuFlags::U, true);
+            // Increment the program counter
             self.pc += 1;
 
+            // Lookup the instruction using the opcode from the lookup table
             let instruction: &CpuInstruction =
                 &LOOKUP_TABLE[self.opcode as usize];
+            // Set the initial cycle count for the instruction
             self.cycles = instruction.cycles;
 
+            // Execute the addressing mode operation and add any additional cycles
             let added_cycle1: u8 = (instruction.op_code)(self, bus);
+            // Execute the opcode operation and add any additional cycles
             let added_cycle2: u8 = (instruction.addr_mode)(self, bus);
 
+            // Update the cycle count with any additional cycles from the operations
             self.cycles += added_cycle1 & added_cycle2;
+            // Ensure the U flag remains set
             self.set_flag(CpuFlags::U, true);
 
             #[cfg(feature = "debug")]
@@ -167,7 +268,9 @@ impl CPU {
                 println!("{:?}", instruction);
             }
         }
+        // Increment the internal clock count
         self._clock_count += 1;
+        // Decrement the remaining cycles
         self.cycles -= 1;
     }
 

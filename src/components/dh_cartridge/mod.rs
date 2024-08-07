@@ -1,6 +1,6 @@
 use self::mirroring::Mirroring;
 
-use super::dh_mappers::mapper::types::Mapper;
+use super::dh_mappers::dh_mapper::mapper::Mapper;
 
 pub(super) mod mirroring;
 
