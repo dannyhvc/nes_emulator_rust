@@ -4,7 +4,7 @@ use crate::components::types::CpuInstruction;
 
 use crate::components::dh_bus::bus::BUS;
 use crate::components::types::{addr_mnuemonic::AddrModeMneumonic, CpuFlags};
-use crate::components::LOOKUP_TABLE;
+use crate::components::{LOOKUP_TABLE, LOW_BIT_HIGH_BYTE, LOW_BYTE};
 
 /// # Mos 6502AD
 /// ## Fields
@@ -78,6 +78,56 @@ impl CPU {
         self.abs
     }
 
+    pub fn nmi(&mut self, bus: &mut BUS) {
+        bus.write(
+            LOW_BIT_HIGH_BYTE + self.sp as u16,
+            (self.pc as u8 >> 8) & LOW_BYTE as u8,
+        );
+        self.sp.checked_sub(1).map(|v| self.sp = v).unwrap();
+
+        self.set_flag(CpuFlags::B, false);
+        self.set_flag(CpuFlags::U, true);
+        self.set_flag(CpuFlags::I, true);
+
+        let addr = LOW_BIT_HIGH_BYTE.checked_add(self.sp.into()).unwrap();
+        bus.write(addr, self.status);
+        self.sp.checked_sub(1).map(|v| self.sp = v).unwrap();
+
+        self.abs = 0xFFFA;
+
+        let low = bus.read(self.abs + 0, false);
+        let high = bus.read(self.abs + 1, false);
+
+        self.pc = ((high << 8) | low).into();
+        self.cycles = 8;
+    }
+
+    pub fn irq(&mut self, bus: &mut BUS) {
+        if self.get_flag(CpuFlags::I) == 0 {
+            let addr = LOW_BIT_HIGH_BYTE.checked_add(self.sp.into()).unwrap();
+            bus.write(addr, (self.pc >> 8 & LOW_BYTE) as u8);
+            self.sp.checked_sub(1).map(|v| self.sp = v).unwrap();
+            let addr = LOW_BIT_HIGH_BYTE.checked_add(self.sp.into()).unwrap();
+            bus.write(addr, (self.pc & LOW_BYTE) as u8);
+            self.sp.checked_sub(1).map(|v| self.sp = v).unwrap();
+
+            self.set_flag(CpuFlags::B, false);
+            self.set_flag(CpuFlags::U, true);
+            self.set_flag(CpuFlags::I, true);
+            let addr = LOW_BIT_HIGH_BYTE.checked_add(self.sp.into()).unwrap();
+            bus.write(addr, self.status);
+            self.sp.checked_sub(1).map(|v| self.sp = v).unwrap();
+
+            self.abs = 0xFFFE;
+
+            let low = bus.read(self.abs + 0, false);
+            let high = bus.read(self.abs + 1, false);
+
+            self.pc = ((high << 8) | low).into();
+            self.cycles = 7;
+        }
+    }
+
     // Simulates a clock cycle of the 6502 CPU.
     ///
     /// This function is responsible for fetching and executing the current instruction pointed to by the program counter (PC) of the CPU.
@@ -111,6 +161,11 @@ impl CPU {
 
             self.cycles += added_cycle1 & added_cycle2;
             self.set_flag(CpuFlags::U, true);
+
+            #[cfg(feature = "debug")]
+            {
+                println!("{:?}", instruction);
+            }
         }
         self._clock_count += 1;
         self.cycles -= 1;

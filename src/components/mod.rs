@@ -20,11 +20,17 @@ use self::types::opcodes::M6502Opcodes;
 use self::types::ins_mneumonic::InstructionMneumonic;
 use self::types::CpuInstruction;
 
-const START_OF_RAM: u16 = 0x0000;
-const END_OF_RAM: u16 = 0xFFFF;
-const LOW_BYTE: u16 = 0x00FF;
-const HIGH_BYTE: u16 = 0xFF00;
-const TOP_BIT_THRESH: u16 = 0x0080;
+pub const START_OF_RAM: u16 = 0x0000;
+pub const END_OF_RAM: u16 = 0xFFFF;
+pub const LOW_BYTE: u16 = 0x00FF;
+pub const HIGH_BYTE: u16 = 0xFF00;
+pub const TOP_BIT_THRESH: u16 = 0x0080;
+pub const LOW_BIT_HIGH_BYTE: u16 = 0x0100;
+
+pub const RESET_VECTOR_HIGH_BYTE: u16 = 0xFFFD;
+pub const RESET_VECTOR_LOW_BYTE: u16 = 0xFFFC;
+pub const INTERUPT_VECTOR: u16 = 0xFFFE;
+pub const NON_MASKABLE_INTERUPT_VECTOR: u16 = 0xFFFA;
 
 #[inline(always)]
 pub const fn KB(n: u32) -> usize {
