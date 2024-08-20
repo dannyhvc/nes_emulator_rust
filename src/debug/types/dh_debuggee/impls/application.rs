@@ -13,7 +13,7 @@ use crate::debug::mini_program;
 use crate::debug::types::dh_debuggee::debuggee::Debuggees;
 use crate::debug::types::dh_debuggee_message::DebuggeeMessage;
 use crate::debug::types::utilities::Utilities;
-use crate::debug::widgets::cpu_monitor_view::debug_cpu_view;
+use crate::debug::widgets::cpu_monitor_view::cpu_view;
 use crate::debug::widgets::ram_widgets::read_hits::ram_read_hit_view;
 use crate::debug::widgets::ram_widgets::write_hits::ram_write_hit_view;
 
@@ -104,17 +104,19 @@ impl Application for Debuggees {
 
     fn view(&self) -> Element<'_, Self::Message> {
         let res = iced::widget::responsive(|_s: iced::Size| {
-            let cpu_debug = debug_cpu_view(self);
-            let read_col = ram_read_hit_view();
-            // write col init
-            let write_col = ram_write_hit_view();
+            // let cpu_debug = cpu_view(self);
+            // let read_col = ram_read_hit_view();
+            // // write col init
+            // let write_col = ram_write_hit_view();
 
-            row! {
-                cpu_debug,
-                read_col,
-                write_col,
-            }
-            .into()
+            // row! {
+            //     cpu_debug,
+            //     read_col,
+            //     write_col,
+            // }
+            // .into()
+
+            todo!() // TODO: make a movable node system from scratch
         });
 
         // collecting kv's into vec and sorting by key (address) s.t. it is a sorted

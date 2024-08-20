@@ -8,7 +8,7 @@ use iced_aw::{grid, grid_row};
 pub fn ram_read_hit_view<'a>() -> iced::Element<'a, DebuggeeMessage> {
     iced::widget::responsive(|_s| {
         // title
-        let mut read_col = column!(Text::new("Read").size(30)).padding(10);
+        let read_col = column!(Text::new("Read").size(30)).padding(10);
         // map -> sorted set
         let mut r: Vec<_> =
             crate::components::dh_bus::ram_stats::read_access_hits()
@@ -37,7 +37,10 @@ pub fn ram_read_hit_view<'a>() -> iced::Element<'a, DebuggeeMessage> {
                 .horizontal_alignment(iced::alignment::Horizontal::Center)
                 .vertical_alignment(iced::alignment::Vertical::Center);
         }
-        read_col = read_col.push(grid);
+
+        // HACK: remove the explain
+        let read_col = iced::Element::from(read_col.push(grid))
+            .explain(iced::Color::BLACK);
         iced::widget::Scrollable::new(read_col).into()
     })
     .into()

@@ -12,8 +12,12 @@ iced = ["dep:iced"]
 
 [dependencies]
 anyhow = "1.0.71"
-iced = { version = "0.12.1", features = ["debug", "advanced", "lazy"], optional = true }
+features = "0.10.0"
+geometry = "0.2.0"
+iced = { version = "0.12.1", features = ["debug", "advanced", "lazy", "canvas", "async-std", "highlighter", "iced_highlighter", "image", "multi-window", "palette", "qr_code" ], optional = true }
 iced_aw = "0.9.3"
+iced_graphics = { version = "0.12.1", features = ["geometry"] }
+iced_renderer = "0.12.1"
 # iced_table = "0.12.0"
 once_cell = "1.18.0"
 
