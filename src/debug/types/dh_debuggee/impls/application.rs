@@ -13,9 +13,11 @@ use crate::debug::mini_program;
 use crate::debug::types::dh_debuggee::debuggee::Debuggees;
 use crate::debug::types::dh_debuggee_message::DebuggeeMessage;
 use crate::debug::types::utilities::Utilities;
-use crate::debug::widgets::cpu_monitor_view::cpu_view;
-use crate::debug::widgets::ram_widgets::read_hits::ram_read_hit_view;
-use crate::debug::widgets::ram_widgets::write_hits::ram_write_hit_view;
+// use crate::debug::widgets::cpu_monitor_view::cpu_view;
+use crate::debug::widgets::movable_nodes;
+use crate::debug::widgets::movable_nodes::MovableNodes;
+// use crate::debug::widgets::ram_widgets::read_hits::ram_read_hit_view;
+// use crate::debug::widgets::ram_widgets::write_hits::ram_write_hit_view;
 
 impl Application for Debuggees {
     type Message = DebuggeeMessage;
@@ -103,28 +105,9 @@ impl Application for Debuggees {
     }
 
     fn view(&self) -> Element<'_, Self::Message> {
-        let res = iced::widget::responsive(|_s: iced::Size| {
-            // let cpu_debug = cpu_view(self);
-            // let read_col = ram_read_hit_view();
-            // // write col init
-            // let write_col = ram_write_hit_view();
-
-            // row! {
-            //     cpu_debug,
-            //     read_col,
-            //     write_col,
-            // }
-            // .into()
-
-            todo!() // TODO: make a movable node system from scratch
-        });
-
-        // collecting kv's into vec and sorting by key (address) s.t. it is a sorted
-        // hashmap. Doing this for both Read and Write on ram so that we can display
-        // them in a column and organize the them by access category
-
-        // read col init
-        // Container::new(row![cpu_col, bus_col, read_col, write_col, table]).into()
-        res.into()
+        let mut mn = movable_nodes::MovableNodes::new();
+        mn.nodes
+            .push(MovableNodes::new_node_at(iced::Point::new(100.0, 100.0)));
+        mn.into()
     }
 }
