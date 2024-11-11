@@ -5,6 +5,7 @@ use iced_graphics::geometry::Renderer as GeometryRenderer;
 pub struct MovableNodes {
     pub nodes: Vec<Node>,
     dragging: Option<usize>,
+    drag_offset: iced::Vector,
 }
 
 #[derive(Clone)]
@@ -33,6 +34,7 @@ impl MovableNodes {
         Self {
             nodes: Vec::new(),
             dragging: None,
+            drag_offset: iced::Vector::default(),
         }
     }
 
@@ -107,6 +109,10 @@ impl<Message, Theme> iced::advanced::Widget<Message, Theme, Renderer>
                     if let Some(index) = self.node_at(cursor_position) {
                         // Start dragging the node
                         self.dragging = Some(index);
+                        self.drag_offset = iced::Vector::new(
+                            cursor_position.x - self.nodes[index].position.x,
+                            cursor_position.y - self.nodes[index].position.y,
+                        );
                         return iced::advanced::graphics::core::event::Status::Captured;
                     }
                 }
@@ -127,7 +133,10 @@ impl<Message, Theme> iced::advanced::Widget<Message, Theme, Renderer>
                     if let Some(dragging_index) = self.dragging {
                         // Update the position of the dragged node
                         if let Some(node) = self.nodes.get_mut(dragging_index) {
-                            node.position = position;
+                            node.position = iced::Point::new(
+                                position.x - self.drag_offset.x,
+                                position.y - self.drag_offset.y,
+                            );
                             // Trigger a redraw
                             shell.invalidate_layout();
                         }
