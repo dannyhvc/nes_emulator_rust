@@ -13,8 +13,7 @@ use crate::debug::types::dh_debuggee::debuggee::Debuggees;
 use crate::debug::types::dh_debuggee_message::DebuggeeMessage;
 use crate::debug::types::utilities::Utilities;
 // use crate::debug::widgets::cpu_monitor_view::cpu_view;
-use crate::debug::widgets::movable_nodes;
-use crate::debug::widgets::movable_nodes::MovableNodes;
+use crate::debug::widgets::movable_nodes::node_def::MovableNodeContainer;
 // use crate::debug::widgets::ram_widgets::read_hits::ram_read_hit_view;
 // use crate::debug::widgets::ram_widgets::write_hits::ram_write_hit_view;
 
@@ -104,9 +103,18 @@ impl Application for Debuggees {
     }
 
     fn view(&self) -> Element<'_, Self::Message> {
-        let mut mn = movable_nodes::MovableNodes::new();
+        let mut mn = MovableNodeContainer::new();
         mn.nodes
-            .push(MovableNodes::new_node_at(iced::Point::new(100.0, 100.0)));
+            .push(MovableNodeContainer::<Self::Message>::new_node_at(
+                iced::Point::new(100.0, 100.0),
+            ));
+        mn.nodes.push(
+            MovableNodeContainer::<Self::Message>::new_node_from_widget(
+                iced::Point::new(100.0, 100.0),
+                iced::widget::text("Dan").into(),
+            ),
+        );
+
         mn.into()
     }
 }
