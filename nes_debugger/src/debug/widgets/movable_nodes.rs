@@ -1,34 +1,35 @@
-use iced::Renderer;
-// use iced_graphics::geometry::Renderer as GeometryRenderer;
+use iced::{Element, Renderer};
+use iced_graphics::geometry::Renderer as GeometryRenderer;
 
-#[derive(Clone)]
-pub struct MovableNodes {
-    pub nodes: Vec<Node>,
+pub struct MovableNodes<'a, Message, Theme, Renderer> {
+    pub nodes: Vec<Node<'a, Message, Theme, Renderer>>,
     dragging: Option<usize>,
 }
 
-#[derive(Clone)]
-pub struct Node {
+pub struct Node<'a, Message, Theme, Renderer> {
     position: iced::Point,
     size: iced::Size,
     color: iced::Color,
+    child: iced::Element<'a, Message, Theme, Renderer>,
 }
 
-impl Node {
+impl<'a, Message, Theme, Renderer> Node<'a, Message, Theme, Renderer> {
     pub fn new(
         position: iced::Point,
         size: iced::Size,
         color: iced::Color,
+        child: Element<'a, Message, Theme, Renderer>,
     ) -> Self {
         Self {
             position,
             size,
             color,
+            child,
         }
     }
 }
 
-impl MovableNodes {
+impl<'a, Message, Theme> MovableNodes<'a, Message, Theme, Renderer> {
     pub fn new() -> Self {
         Self {
             nodes: Vec::new(),
@@ -36,11 +37,20 @@ impl MovableNodes {
         }
     }
 
-    pub fn new_node_at(position: iced::Point) -> Node {
+    pub fn push(mut self, node: Node<'a, Message, Theme, Renderer>) -> Self {
+        self.nodes.push(node);
+        self
+    }
+
+    pub fn new_node_at(
+        position: iced::Point,
+        child: iced::Element<'a, Message, Theme, Renderer>,
+    ) -> Node<'a, Message, Theme, Renderer> {
         Node {
             position,
             size: iced::Size::new(50.0, 50.0),
             color: iced::Color::new(0.5, 0.5, 0.5, 1.0),
+            child,
         }
     }
 
@@ -59,8 +69,8 @@ impl MovableNodes {
 
 // pub trait MoveableNodeRenderer {}
 
-impl<Message, Theme> iced::advanced::Widget<Message, Theme, Renderer>
-    for MovableNodes
+impl<'a, Message, Theme> iced::advanced::Widget<Message, Theme, iced::Renderer>
+    for MovableNodes<'a, Message, Theme, iced::Renderer>
 {
     fn size(&self) -> iced::Size<iced::Length> {
         iced::Size::new(iced::Length::Fill, iced::Length::Fill)
@@ -84,7 +94,7 @@ impl<Message, Theme> iced::advanced::Widget<Message, Theme, Renderer>
         }
 
         let geometry = vec![frame.into_geometry()];
-        // renderer.draw(geometry);
+        renderer.draw(geometry);
     }
 
     fn on_event(
@@ -127,12 +137,24 @@ impl<Message, Theme> iced::advanced::Widget<Message, Theme, Renderer>
                     if let Some(dragging_index) = self.dragging {
                         // Update the position of the dragged node
                         if let Some(node) = self.nodes.get_mut(dragging_index) {
+                            let rel_offset = iced::Point {
+                                x: (cursor_position.x - node.position.x).abs(),
+                                y: (cursor_position.y - node.position.y).abs(),
+                            };
+                            // let node_abs = position - rel_offset;
+                            // node.position = position - node_abs;
+
                             node.position = position;
                             // Trigger a redraw
                             shell.invalidate_layout();
                         }
                         return iced::advanced::graphics::core::event::Status::Captured;
                     }
+                }
+
+                iced::Event::Keyboard(e) => {
+                    println!("{e:?}");
+                    return iced::advanced::graphics::core::event::Status::Ignored;
                 }
 
                 _ => {}
@@ -168,22 +190,37 @@ impl<Message, Theme> iced::advanced::Widget<Message, Theme, Renderer>
         _renderer: &Renderer,
         limits: &iced::advanced::layout::Limits,
     ) -> iced::advanced::layout::Node {
-        let l = iced::Pixels(0.0f32);
+        // let mut root_node = iced::advanced::layout::Node::new(limits.max());
+        // for node in &self.nodes {
+        //     let child_node = node.child.as_widget().layout(
+        //         &mut iced::advanced::widget::Tree::empty(),
+        //         _renderer,
+        //         &limits.shrink(node.size),
+        //     );
+        //     let child_layout = child_node
+        //         .move_to(iced::Point::new(node.position.x, node.position.y));
+        //     root_node = iced::advanced::layout::Node::with_children(
+        //         root_node.size(),
+        //         vec![child_layout],
+        //     );
+        // }
+
+        let l = iced::Pixels(1.0f32);
         let size = limits
             .width(iced::Length::Fill)
             .height(iced::Length::Fill)
             .resolve(l, l, iced::Size::new(0.0f32, 0.0f32));
 
         iced::advanced::layout::Node::new(size)
+        // root_node
     }
 }
 
-impl<'a, Message, Theme> Into<iced::Element<'a, Message, Theme>>
-    for MovableNodes
-where
-    Renderer: iced::advanced::Renderer,
+impl<'a, Message: 'a, Theme: 'a>
+    Into<iced::Element<'a, Message, Theme, iced::Renderer>>
+    for MovableNodes<'a, Message, Theme, iced::Renderer>
 {
     fn into(self) -> iced::Element<'a, Message, Theme, iced::Renderer> {
-        iced::Element::new(self)
+        iced::Element::<'a, Message, Theme, iced::Renderer>::new(self)
     }
 }

@@ -1,15 +1,6 @@
 use crate::bs;
-use iced::{
-    application::{Title, Update},
-    Settings,
-};
-use types::{
-    dh_debuggee::{
-        debuggee::{self, Debuggees},
-        impls::application::DebuggerApp,
-    },
-    dh_debuggee_message::DebuggeeMessage,
-};
+use iced::{Application, Settings};
+use types::dh_debuggee::debuggee;
 
 pub mod styles;
 pub mod types;
@@ -55,16 +46,16 @@ fn mini_program(
     ];
 
     // Set reset vector (where the program will start exectuing from)
-    bus.write(crate::components::RESET_VECTOR_LOW_BYTE, 0x00);
-    bus.write(crate::components::RESET_VECTOR_HIGH_BYTE, 0x80);
+    // bus.write(crate::components::RESET_VECTOR_LOW_BYTE, 0x00);
+    // bus.write(crate::components::RESET_VECTOR_HIGH_BYTE, 0x80);
 
     // is there a better way to do this?
     // NOTE this will add count of WRITE for all program instruction addresses.
     bus.load_instruction_mem(ttape.clone());
 
     // NOTE this will add count of READ for all locations between START and STOP
-    let disasm: std::collections::HashMap<u16, String> =
-        crate::components::dh_cpu::cpu::CPU::disassemble(bus, START, STOP);
+    // let disasm: std::collections::HashMap<u16, String> =
+    //     crate::components::dh_cpu::cpu::CPU::disassemble(bus, START, STOP);
     let disasm: Vec<_> = disasm
         .iter()
         .filter(|&(k, _v)| {
@@ -81,20 +72,4 @@ fn mini_program(
 
     dbg!(disasm);
     cpu.reset(&bus);
-}
-
-pub fn run() {
-    // let settings = Settings::<()> {
-    //     window: iced::window::Settings {
-    //         size: iced::Size::new(800.0, 800.0),
-    //         resizable: true,
-    //         exit_on_close_request: true,
-    //         ..Default::default()
-    //     },
-    //     ..Default::default()
-    // };
-
-    // Run the application with custom settings
-
-    iced::run(DebuggerApp, DebuggerApp, DebuggerApp);
 }
