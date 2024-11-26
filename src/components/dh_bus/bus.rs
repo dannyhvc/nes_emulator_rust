@@ -25,7 +25,7 @@ impl BUS {
     }
 
     #[cfg(feature = "debug")]
-    pub fn load_instruction_mem(&mut self, data: Box<[Box<[u16]>]>) {
+    pub fn load_instruction_mem(&mut self, data: Vec<Vec<u16>>) {
         const ADDRESS_INDEX: usize = 0;
         const OPCODE_INDEX: usize = 1;
 

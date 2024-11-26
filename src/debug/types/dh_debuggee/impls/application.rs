@@ -1,7 +1,7 @@
 use iced::application::{Title, Update, View};
 // iced imports
 use iced::keyboard::key;
-use iced::Element;
+use iced::{Element, Subscription};
 
 // nes components
 use crate::components::dh_bus::bus::BUS;
@@ -12,11 +12,6 @@ use crate::debug::mini_program;
 use crate::debug::types::dh_debuggee::debuggee::Debuggees;
 use crate::debug::types::dh_debuggee_message::DebuggeeMessage;
 use crate::debug::types::utilities::Utilities;
-// use crate::debug::widgets::cpu_monitor_view::cpu_view;
-// use crate::debug::widgets::movable_nodes;
-// use crate::debug::widgets::movable_nodes::MovableNodes;
-// use crate::debug::widgets::ram_widgets::read_hits::ram_read_hit_view;
-// use crate::debug::widgets::ram_widgets::write_hits::ram_write_hit_view;
 
 impl Debuggees {
     pub fn new() -> Self {
@@ -104,12 +99,12 @@ impl<'a> View<'a, Debuggees, DebuggeeMessage, iced::Theme, iced::Renderer>
     }
 }
 
-// fn subscription(&self) -> iced::Subscription<Self::Message> {
-//     iced::keyboard::on_key_press(|key, _modifier| match key {
+// fn subscription(state: &State) -> Subscription<DebuggeeMessage> {
+//     return iced::keyboard::on_key_press(|key, _modifier| match key {
 //         key::Key::Named(..) => Some(DebuggeeMessage::KeyPressed(key)),
 //         key::Key::Character(..) => Some(DebuggeeMessage::KeyPressed(key)),
 //         key::Key::Unidentified => None,
-//     })
+//     });
 // }
 
 // fn view(&self) -> Element<'_, Self::Message> {

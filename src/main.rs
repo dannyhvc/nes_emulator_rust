@@ -1,4 +1,5 @@
 #![allow(non_snake_case)]
+
 mod components;
 
 #[cfg(feature = "debug")]
@@ -16,10 +17,17 @@ macro_rules! bs {
     );
 }
 
-fn main() {
+fn main() -> anyhow::Result<()> {
     #[cfg(feature = "debug")]
-    debug::run();
+    {
+        use std::env::set_var;
+        pretty_env_logger::init();
+
+        set_var("RUST_LOG", "info");
+        debug::run()?;
+    }
 
     #[cfg(not(feature = "debug"))]
     println!("starting nes-emulator-rs");
+    Ok(())
 }
