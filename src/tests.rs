@@ -1,8 +1,5 @@
 #![allow(non_snake_case)]
-use crate::{
-    bs,
-    components::{dh_bus::bus::BUS, dh_cpu::cpu::CPU},
-};
+use crate::components::{dh_bus::bus::BUS, dh_cpu::cpu::CPU};
 use rstest::{fixture, rstest};
 
 #[fixture]
@@ -77,16 +74,16 @@ fn test_mini_program(mut cpu: CPU, mut bus: BUS) {
     bus.write(0x02, 0x1E);
     bus.write(0x03, 0x28);
 
-    let ttape = bs![
+    let ttape = vec![
         //  addr        opc   operand(s)
-        bs![0xC000_u16, 0xA5, 0x0],
-        bs![0xC002_u16, 0x85, 0x2],
-        bs![0xC004_u16, 0xA5, 0x1],
-        bs![0xC006_u16, 0x85, 0x3],
-        bs![0xC008_u16, 0xA5, 0x2],
-        bs![0xC00A_u16, 0x65, 0x3],
-        bs![0xC00C_u16, 0x85, 0x4],
-        bs![0xC00E_u16, 0x4C, 0x00, 0x0C]
+        vec![0xC000_u16, 0xA5, 0x0],
+        vec![0xC002_u16, 0x85, 0x2],
+        vec![0xC004_u16, 0xA5, 0x1],
+        vec![0xC006_u16, 0x85, 0x3],
+        vec![0xC008_u16, 0xA5, 0x2],
+        vec![0xC00A_u16, 0x65, 0x3],
+        vec![0xC00C_u16, 0x85, 0x4],
+        vec![0xC00E_u16, 0x4C, 0x00, 0x0C],
     ];
 
     // is there a better way to do this?

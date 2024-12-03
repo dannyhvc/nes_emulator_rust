@@ -69,6 +69,7 @@ impl Update<DebuggerState, DebuggerMsg> for DebuggerApp {
                 }
                 _ => unimplemented!(),
             },
+            _ => {}
         }
         iced::Task::none()
     }
