@@ -11,6 +11,8 @@ use crate::debug::types::DebuggerApp;
 use crate::debug::types::DebuggerMsg;
 use crate::debug::types::DebuggerState;
 
+use super::views::base;
+
 impl Title<DebuggerState> for DebuggerApp {
     fn title(&self, _state: &DebuggerState) -> String {
         "NES Debugger".into()
@@ -69,7 +71,6 @@ impl Update<DebuggerState, DebuggerMsg> for DebuggerApp {
                 }
                 _ => unimplemented!(),
             },
-            _ => {}
         }
         iced::Task::none()
     }
@@ -82,11 +83,12 @@ impl<'a> View<'a, DebuggerState, DebuggerMsg, iced::Theme, iced::Renderer>
         &self,
         _state: &'a DebuggerState,
     ) -> impl Into<Element<'a, DebuggerMsg, iced::Theme, iced::Renderer>> {
-        iced::widget::Container::new(iced::widget::text("beans"))
+        // base(_state)
+        base()
     }
 }
 
-pub fn subscription(state: &DebuggerState) -> Subscription<DebuggerMsg> {
+pub fn subscription(_state: &DebuggerState) -> Subscription<DebuggerMsg> {
     iced::keyboard::on_key_press(|key, _modifier| match key {
         key::Key::Named(_) => Some(DebuggerMsg::KeyPressed(key)),
         key::Key::Character(_) => Some(DebuggerMsg::KeyPressed(key)),
