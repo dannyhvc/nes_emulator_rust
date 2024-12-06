@@ -12,7 +12,6 @@ pub fn run() -> anyhow::Result<()> {
     iced::application(DebuggerApp, DebuggerApp, DebuggerApp)
         .settings(Settings::default())
         .subscription(subscription)
-        .transparent(true)
         .exit_on_close_request(true)
         .run()
         .context("iced app encountered a critical failure")
