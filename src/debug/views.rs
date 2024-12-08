@@ -39,7 +39,7 @@ pub fn base<'a>() -> impl Into<Element<'a, DebuggerMsg>> {
 
     #[rustfmt::skip]
     let mb = menu_bar!((
-        Button::new("Widgets"),
+        Button::new("View"),
         Menu::new(menu_items!(
             ( Button::new("CPU").on_press(DebuggerMsg::Start).width(Length::Fill) )
             ( Button::new("PPU").on_press(DebuggerMsg::Start).width(Length::Fill) )
@@ -59,7 +59,7 @@ pub fn base<'a>() -> impl Into<Element<'a, DebuggerMsg>> {
     let main_col = mb.padding(10.0);
     let main_col = col![
         main_col,
-        col![row![
+        col![row![row![
             button("reset")
                 .on_press(DebuggerMsg::Start)
                 .padding(Padding {
@@ -92,15 +92,16 @@ pub fn base<'a>() -> impl Into<Element<'a, DebuggerMsg>> {
                     bottom: 10.0,
                     left: 45.0,
                 }),
-            button("show am")
-                .on_press(DebuggerMsg::Start)
-                .padding(Padding {
+            button("show flags").on_press(DebuggerMsg::Start).padding(
+                Padding {
                     top: 10.0,
                     right: 45.0,
                     bottom: 10.0,
                     left: 45.0,
-                }),
-        ]]
+                }
+            ),
+        ]
+        .spacing(10)]]
         .align_x(Alignment::Center)
         .width(Length::Fill)
     ]
