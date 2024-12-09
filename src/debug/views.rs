@@ -3,7 +3,7 @@
 #![allow(clippy::wildcard_imports)]
 #![allow(clippy::enum_glob_use)]
 
-use super::types::*;
+use super::{data_preporation, traits::*, types::*};
 use border::Radius;
 use iced::widget::*;
 use iced::*;
@@ -13,8 +13,9 @@ use iced_aw::{
     widget::InnerBounds,
 };
 
+use super::types::DebuggerState;
 use iced::widget::column as col;
-
+use widget::Scrollable;
 /// # seperator
 ///
 /// horizontal grey seperator component
@@ -34,7 +35,7 @@ fn seperator() -> quad::Quad {
 /// # menu_bar_example
 ///
 /// The main entry point component for the debugger
-pub fn base<'a>() -> impl Into<Element<'a, DebuggerMsg>> {
+pub fn base<'a>(state: &DebuggerState) -> impl Into<Element<'a, DebuggerMsg>> {
     // closure for making a small seperator line in the menu
 
     #[rustfmt::skip]
@@ -56,56 +57,71 @@ pub fn base<'a>() -> impl Into<Element<'a, DebuggerMsg>> {
         ..primary(theme, status)
     });
 
-    let main_col = mb.padding(10.0);
-    let main_col = col![
-        main_col,
-        col![row![row![
-            button("reset")
-                .on_press(DebuggerMsg::Start)
-                .padding(Padding {
-                    top: 10.0,
-                    right: 45.0,
-                    bottom: 10.0,
-                    left: 45.0,
-                }),
-            button("clock")
-                .on_press(DebuggerMsg::Start)
-                .padding(Padding {
-                    top: 10.0,
-                    right: 45.0,
-                    bottom: 10.0,
-                    left: 45.0,
-                }),
-            button("show op")
-                .on_press(DebuggerMsg::Start)
-                .padding(Padding {
-                    top: 10.0,
-                    right: 45.0,
-                    bottom: 10.0,
-                    left: 45.0,
-                }),
-            button("show am")
-                .on_press(DebuggerMsg::Start)
-                .padding(Padding {
-                    top: 10.0,
-                    right: 45.0,
-                    bottom: 10.0,
-                    left: 45.0,
-                }),
-            button("show flags").on_press(DebuggerMsg::Start).padding(
-                Padding {
-                    top: 10.0,
-                    right: 45.0,
-                    bottom: 10.0,
-                    left: 45.0,
-                }
-            ),
-        ]
-        .spacing(10)]]
-        .align_x(Alignment::Center)
-        .width(Length::Fill)
-    ]
-    .width(Length::Fill);
+    let mut main_col = col![mb.padding(10.0)];
+    main_col = main_col
+        .push(
+            col![row![row![
+                button("reset")
+                    .on_press(DebuggerMsg::Start)
+                    .padding(Padding {
+                        top: 10.0,
+                        right: 45.0,
+                        bottom: 10.0,
+                        left: 45.0,
+                    }),
+                button("clock")
+                    .on_press(DebuggerMsg::Start)
+                    .padding(Padding {
+                        top: 10.0,
+                        right: 45.0,
+                        bottom: 10.0,
+                        left: 45.0,
+                    }),
+                button("show op").on_press(DebuggerMsg::Start).padding(
+                    Padding {
+                        top: 10.0,
+                        right: 45.0,
+                        bottom: 10.0,
+                        left: 45.0,
+                    }
+                ),
+                button("show am").on_press(DebuggerMsg::Start).padding(
+                    Padding {
+                        top: 10.0,
+                        right: 45.0,
+                        bottom: 10.0,
+                        left: 45.0,
+                    }
+                ),
+                button("show flags").on_press(DebuggerMsg::Start).padding(
+                    Padding {
+                        top: 10.0,
+                        right: 45.0,
+                        bottom: 10.0,
+                        left: 45.0,
+                    }
+                ),
+            ]
+            .spacing(10)]]
+            .align_x(Alignment::Center)
+            .width(Length::Fill),
+        )
+        .width(Length::Fill);
+
+    let ram_as_label_widget: Vec<
+        Element<'a, DebuggerMsg, iced::Theme, iced::Renderer>,
+    > = state
+        .bus
+        .ram()
+        .iter()
+        .map(|b| Element::from(text("b")))
+        .collect();
+
+    state.first_n_words();
+
+    Container::new(Scrollable::new(Column::from_vec(ram_as_label_widget)));
+
+    // main_col = main_col.push(Scrollable::new(col![state.bus.ram()]));
 
     main_col
 }

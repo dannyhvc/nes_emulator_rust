@@ -26,28 +26,31 @@ impl BUS {
 
     #[cfg(feature = "debug")]
     pub fn load_instruction_mem(&mut self, data: Vec<Vec<u16>>) {
-        const ADDRESS_INDEX: usize = 0;
-        const OPCODE_INDEX: usize = 1;
+        // represents the index at which the entire instruction (opcode + operands)
+        // will be stored at relatively to the instruction vec
+        const CPU_INS_STORED_AT_INDX: usize = 0;
+        // as follows the opcode index is stored directly after the address of the ins.
+        const OPCODE_INDX: usize = 1;
 
-        // go through each instruction
         data.iter().for_each(|instruction| {
-            let code_segment: &[u16] = instruction.iter().as_slice();
-            let mut address: u16 = code_segment[ADDRESS_INDEX];
-            let opcode = code_segment[OPCODE_INDEX] as u8;
+            //
+            let segmented_ins: &[u16] = instruction.iter().as_slice();
+            let mut ins_address: u16 = segmented_ins[CPU_INS_STORED_AT_INDX];
+            let opcode = segmented_ins[OPCODE_INDX] as u8;
 
             // first part of the instruction is always the opcode address
-            self.write(address, opcode);
+            self.write(ins_address, opcode);
 
-            if code_segment.len() > 2 {
+            if segmented_ins.len() > 2 {
                 // move to the probable first operand
-                address += 1;
+                ins_address += 1;
 
                 // get the operands
-                let operands = &code_segment[2..];
+                let operands = &segmented_ins[2..];
                 operands.into_iter().for_each(|operand| {
                     // write each operand to the resulting incremented address
-                    self.write(address, *operand as u8);
-                    address += 1;
+                    self.write(ins_address, *operand as u8);
+                    ins_address += 1;
                 });
             }
         });
@@ -62,8 +65,8 @@ impl BUS {
     }
 
     #[cfg(feature = "debug")]
-    pub fn ram(&self) -> [u8; KB(64)] {
-        self.ram
+    pub fn ram(&self) -> &[u8; KB(64)] {
+        &self.ram
     }
 
     #[inline]

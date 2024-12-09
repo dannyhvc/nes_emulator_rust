@@ -4,7 +4,9 @@ use iced::Settings;
 use types::DebuggerApp;
 
 pub mod app;
+pub mod data_preporation;
 pub mod styles;
+pub mod traits;
 pub mod types;
 pub mod views;
 

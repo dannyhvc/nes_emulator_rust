@@ -81,10 +81,10 @@ impl<'a> View<'a, DebuggerState, DebuggerMsg, iced::Theme, iced::Renderer>
 {
     fn view(
         &self,
-        _state: &'a DebuggerState,
+        state: &'a DebuggerState,
     ) -> impl Into<Element<'a, DebuggerMsg, iced::Theme, iced::Renderer>> {
         // base(_state)
-        base()
+        base(state)
     }
 }
 

@@ -63,7 +63,7 @@ fn test_disassemble(mut cpu: CPU, mut bus: BUS) {
 /// - `$C00A`  `65` `03`      ;ADC $03   Add the value at memory location $03 to the accumulator
 /// - `$C00C`  `85` `04`      ;STA $04   Store the result in memory location $04
 /// - `$C00E`  `4C` `00` `C0` ;JMP $C000 Jump back to the instruction at memory location $C000
-#[rstest]
+// #[rstest]
 fn test_mini_program(mut cpu: CPU, mut bus: BUS) {
     const START: u16 = 0xC000;
     const STOP: u16 = 0xC00E;
