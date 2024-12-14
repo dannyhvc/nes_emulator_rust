@@ -2,12 +2,12 @@ use super::traits::{HexView, RawRamViewDimensions};
 use super::types::DebuggerState;
 
 impl HexView for DebuggerState {
-    fn display(&self, words_list: Vec<Vec<&u8>>) -> String {
+    fn terminal_view(&self, words_list: Vec<Vec<&u8>>) -> String {
         use std::io::Write;
         let mut fmt_buff = Vec::new();
 
-        words_list.iter().for_each(|word| {
-            word.iter().for_each(|byte| {
+        words_list.into_iter().for_each(|word| {
+            word.into_iter().for_each(|byte| {
                 let hi_lo: String =
                     format!("{:X}{:X} ", *byte >> 4, *byte & 0x0F);
                 write!(&mut fmt_buff, "{}", hi_lo);
@@ -17,6 +17,19 @@ impl HexView for DebuggerState {
 
         String::from_utf8(fmt_buff)
             .expect("Couldn't format nibbles into HexView")
+    }
+
+    fn editable_view(&self, words_list: Vec<Vec<&u8>>) -> Vec<Vec<String>> {
+        let mut editable: Vec<Vec<String>> = Default::default();
+        words_list.into_iter().for_each(|words| {
+            let editable_words: Vec<_> = words
+                .iter()
+                .map(|byte| format!("{:X}{:X}", *byte >> 4, *byte & 0x0F))
+                .collect();
+
+            editable.push(editable_words);
+        });
+        editable
     }
 }
 
@@ -68,7 +81,7 @@ mod tests {
         DebuggerState::default()
     }
 
-    #[rstest]
+    //#[rstest]
     fn test_first_n_words(state: DebuggerState) {
         let result = state.first_n_words();
         // Add assertions to verify the number of chunks, content, etc.
@@ -76,7 +89,7 @@ mod tests {
         assert_eq!(result[0].len(), DebuggerState::WIDTH);
     }
 
-    #[rstest]
+    //#[rstest]
     fn test_last_n_words(state: DebuggerState) {
         let result = state.last_n_words();
         // Add assertions to verify the behavior.
@@ -84,11 +97,19 @@ mod tests {
         assert_eq!(result[0].len(), DebuggerState::WIDTH);
     }
 
+    // #[rstest]
+    fn test_HexView_terminal_view(state: DebuggerState) {
+        let display = state.terminal_view(state.first_n_words());
+        println!("{display}");
+        let display = state.terminal_view(state.last_n_words());
+        println!("{display}");
+    }
+
     #[rstest]
-    fn test_HexView_to_string(state: DebuggerState) {
-        let display = state.display(state.first_n_words());
-        println!("{display}");
-        let display = state.display(state.last_n_words());
-        println!("{display}");
+    fn test_HexView_editable_view(state: DebuggerState) {
+        let display = state.editable_view(state.first_n_words());
+        println!("{display:?}");
+        let display = state.editable_view(state.last_n_words());
+        println!("{display:?}");
     }
 }

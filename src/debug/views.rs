@@ -15,7 +15,6 @@ use iced_aw::{
 
 use super::types::DebuggerState;
 use iced::widget::column as col;
-use widget::Scrollable;
 /// # seperator
 ///
 /// horizontal grey seperator component
@@ -108,20 +107,44 @@ pub fn base<'a>(state: &DebuggerState) -> impl Into<Element<'a, DebuggerMsg>> {
         )
         .width(Length::Fill);
 
-    let ram_as_label_widget: Vec<
-        Element<'a, DebuggerMsg, iced::Theme, iced::Renderer>,
-    > = state
-        .bus
-        .ram()
-        .iter()
-        .map(|b| Element::from(text("b")))
-        .collect();
+    main_col = main_col.push({
+        let start_view = {
+            let start_bytes_view = state.editable_view(state.first_n_words());
+            start_bytes_view
+                .into_iter() // Take ownership of the data
+                .fold(Column::new(), |column, byte_row| {
+                    let row =
+                        byte_row.into_iter().fold(Row::new(), |row, byte| {
+                            let txt =
+                                Container::new(Text::new(byte)).padding(5);
+                            row.push(txt)
+                        });
+                    column.push(row)
+                })
+        };
 
-    state.first_n_words();
+        let end_view = {
+            let end_bytes_view = state.editable_view(state.last_n_words());
+            end_bytes_view
+                .into_iter() // Take ownership of the data
+                .fold(Column::new(), |column, byte_row| {
+                    let row =
+                        byte_row.into_iter().fold(Row::new(), |row, byte| {
+                            let txt =
+                                Container::new(Text::new(byte)).padding(5);
+                            row.push(txt)
+                        });
+                    column.push(row).align_x(Alignment::Center)
+                })
+        };
 
-    Container::new(Scrollable::new(Column::from_vec(ram_as_label_widget)));
-
-    // main_col = main_col.push(Scrollable::new(col![state.bus.ram()]));
+        scrollable(
+            col![start_view, seperator(), end_view]
+                .align_x(Alignment::Center)
+                .padding(10)
+                .spacing(10),
+        )
+    });
 
     main_col
 }

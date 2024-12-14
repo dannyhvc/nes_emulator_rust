@@ -1,4 +1,3 @@
-/// Simple
 pub trait RawRamViewDimensions<
     const WIDTH: usize,
     const HEIGHT: usize,
@@ -16,5 +15,6 @@ pub trait RawRamViewDimensions<
 }
 
 pub trait HexView {
-    fn display(&self, words_list: Vec<Vec<&u8>>) -> String;
+    fn terminal_view(&self, words_list: Vec<Vec<&u8>>) -> String;
+    fn editable_view(&self, words_list: Vec<Vec<&u8>>) -> Vec<Vec<String>>;
 }
