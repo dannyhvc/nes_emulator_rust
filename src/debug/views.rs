@@ -3,7 +3,7 @@
 #![allow(clippy::wildcard_imports)]
 #![allow(clippy::enum_glob_use)]
 
-use super::{data_preporation, traits::*, types::*};
+use super::{traits::*, types::*};
 use border::Radius;
 use iced::widget::*;
 use iced::*;
@@ -15,6 +15,7 @@ use iced_aw::{
 
 use super::types::DebuggerState;
 use iced::widget::column as col;
+
 /// # seperator
 ///
 /// horizontal grey seperator component
@@ -56,58 +57,54 @@ pub fn base<'a>(state: &DebuggerState) -> impl Into<Element<'a, DebuggerMsg>> {
         ..primary(theme, status)
     });
 
-    let mut main_col = col![mb.padding(10.0)];
-    main_col = main_col
-        .push(
-            col![row![row![
-                button("reset")
-                    .on_press(DebuggerMsg::Start)
-                    .padding(Padding {
-                        top: 10.0,
-                        right: 45.0,
-                        bottom: 10.0,
-                        left: 45.0,
-                    }),
-                button("clock")
-                    .on_press(DebuggerMsg::Start)
-                    .padding(Padding {
-                        top: 10.0,
-                        right: 45.0,
-                        bottom: 10.0,
-                        left: 45.0,
-                    }),
-                button("show op").on_press(DebuggerMsg::Start).padding(
-                    Padding {
-                        top: 10.0,
-                        right: 45.0,
-                        bottom: 10.0,
-                        left: 45.0,
-                    }
-                ),
-                button("show am").on_press(DebuggerMsg::Start).padding(
-                    Padding {
-                        top: 10.0,
-                        right: 45.0,
-                        bottom: 10.0,
-                        left: 45.0,
-                    }
-                ),
-                button("show flags").on_press(DebuggerMsg::Start).padding(
-                    Padding {
-                        top: 10.0,
-                        right: 45.0,
-                        bottom: 10.0,
-                        left: 45.0,
-                    }
-                ),
-            ]
-            .spacing(10)]]
-            .align_x(Alignment::Center)
-            .width(Length::Fill),
-        )
-        .width(Length::Fill);
+    let main_col = col![mb.padding(10.0)];
+    let debug_buttons = col![row![row![
+        button("reset")
+            .on_press(DebuggerMsg::Start)
+            .padding(Padding {
+                top: 10.0,
+                right: 45.0,
+                bottom: 10.0,
+                left: 45.0,
+            }),
+        button("clock")
+            .on_press(DebuggerMsg::Start)
+            .padding(Padding {
+                top: 10.0,
+                right: 45.0,
+                bottom: 10.0,
+                left: 45.0,
+            }),
+        button("show op")
+            .on_press(DebuggerMsg::Start)
+            .padding(Padding {
+                top: 10.0,
+                right: 45.0,
+                bottom: 10.0,
+                left: 45.0,
+            }),
+        button("show am")
+            .on_press(DebuggerMsg::Start)
+            .padding(Padding {
+                top: 10.0,
+                right: 45.0,
+                bottom: 10.0,
+                left: 45.0,
+            }),
+        button("show flags")
+            .on_press(DebuggerMsg::Start)
+            .padding(Padding {
+                top: 10.0,
+                right: 45.0,
+                bottom: 10.0,
+                left: 45.0,
+            }),
+    ]
+    .spacing(10)]]
+    .align_x(Alignment::Center)
+    .width(Length::Fill);
 
-    main_col = main_col.push({
+    let memory_scoller = {
         let start_view = {
             let start_bytes_view = state.editable_view(state.first_n_words());
             start_bytes_view
@@ -144,7 +141,10 @@ pub fn base<'a>(state: &DebuggerState) -> impl Into<Element<'a, DebuggerMsg>> {
                 .padding(10)
                 .spacing(10),
         )
-    });
+    };
 
     main_col
+        .push(debug_buttons)
+        .push(memory_scoller)
+        .width(Length::Fill)
 }
