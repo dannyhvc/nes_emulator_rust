@@ -35,7 +35,12 @@ impl HexView for DebuggerState {
     }
 }
 
-impl RawRamViewDimensions<0x0F, 0xF0, 0x0, 0x80_00> for DebuggerState {
+/// WIDTH = 16
+/// HEIGHT = 240 (16*15)
+/// START = 0
+/// END = 32,768 (16^3 * 8)
+///
+impl RawRamViewDimensions<0x10, 0xF0, 0x0, 0x80_00> for DebuggerState {
     fn first_n_words(&self) -> Vec<Vec<&u8>> {
         let binding = self.bus.ram();
         assert!(
@@ -43,12 +48,14 @@ impl RawRamViewDimensions<0x0F, 0xF0, 0x0, 0x80_00> for DebuggerState {
             "Size of the binding is smaller than the size of the START stride"
         );
 
-        let words: Vec<_> = binding
+        // take the first 0xF0 or (16^1 * 0xF) or 240 bytes
+        let words: Vec<&u8> = binding
             .iter()
             .skip(Self::START)
             .take(Self::HEIGHT)
             .collect();
-        let words: Vec<_> = words
+        // chunck them into 16byte rows
+        let words: Vec<Vec<&u8>> = words
             .chunks(Self::WIDTH)
             .map(|chunck| chunck.to_vec())
             .collect();
@@ -62,8 +69,10 @@ impl RawRamViewDimensions<0x0F, 0xF0, 0x0, 0x80_00> for DebuggerState {
             "Size of the binding is smaller than the size of the END stride"
         );
 
-        let words: Vec<_> = binding.iter().rev().take(Self::HEIGHT).collect();
-        let words: Vec<Vec<_>> = words
+        // take the first 0xF0 or (16^1 * 0xF) or 240 bytes of the END index
+        let words: Vec<&u8> = binding.iter().rev().take(Self::HEIGHT).collect();
+        // chunck them into 16byte rows
+        let words: Vec<Vec<&u8>> = words
             .chunks(Self::WIDTH)
             .map(|chunck| chunck.to_vec())
             .collect();

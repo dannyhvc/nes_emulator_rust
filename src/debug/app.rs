@@ -54,24 +54,37 @@ impl Update<DebuggerState, DebuggerMsg> for DebuggerApp {
                         info!("reseting cpu state...");
                         state.cpu.reset(&state.bus);
                     }
+
+                    if c == "i" {
+                        info!("calling irq...");
+                        state.cpu.irq(&mut state.bus);
+                    }
+
+                    if c == "n" {
+                        info!("calling nmi...");
+                        state.cpu.nmi(&mut state.bus);
+                    }
                 }
                 iced::keyboard::Key::Named(n) => {
                     if n == iced::keyboard::key::Named::Escape {
                         info!("exiting...");
-                        return iced::window::close::<DebuggerMsg>(
-                            iced::window::Id::unique(),
-                        );
+                        // return iced::window::close::<DebuggerMsg>(
+                        //     iced::window::Id::unique(),
+                        // );
+                        std::process::exit(0);
                     }
 
                     if n == iced::keyboard::key::Named::Space {
                         if !state.cpu.complete() {
                             state.cpu.clock(&mut state.bus);
+                            info!("clocking the cpu...");
                         }
                     }
                 }
                 _ => unimplemented!(),
             },
         }
+        println!("{:?}", state.cpu);
         iced::Task::none()
     }
 }

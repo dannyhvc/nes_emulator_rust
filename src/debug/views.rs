@@ -132,10 +132,10 @@ fn memory_scoller<'a>(
             })
     };
 
-    const PADDING: u16 = 10u16;
-    const SPACING: u16 = 10u16;
-
     let main: Column<'_, DebuggerMsg> = {
+        const PADDING: u16 = 10u16;
+        const SPACING: u16 = 10u16;
+
         col![start_page_view, seperator(), end_page_view]
             .align_x(Alignment::Center)
             .padding(PADDING)
