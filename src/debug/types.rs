@@ -14,14 +14,23 @@ pub enum DebuggerMsg {
     Start,
     KeyPressed(Key),
     SyncHeader(AbsoluteOffset),
+    RefreshContext(UiContext),
     End,
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone, PartialEq, Hash)]
+pub enum UiContext {
+    ShowRAM,
+    ShowCPU,
+    ShowPPU,
+    ShowAPU,
+}
+
+#[derive(Clone, Hash)]
 pub struct DebuggerState {
     pub bus: BUS,
     pub cpu: CPU,
-    // TODO: maybe incorporate a feild for looking over editable views in debugger
+    pub context: UiContext,
 }
 
 impl Default for DebuggerState {
@@ -29,6 +38,7 @@ impl Default for DebuggerState {
         let mut this = Self {
             cpu: CPU::new(),
             bus: BUS::new(),
+            context: UiContext::ShowRAM,
         };
         CPU::reset(&mut this.cpu, &this.bus);
         mini_program(&mut this);

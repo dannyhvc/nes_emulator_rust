@@ -48,7 +48,7 @@ use crate::components::{LOOKUP_TABLE, LOW_BIT_HIGH_BYTE, LOW_BYTE};
 /// This mechanism allows the CPU to know where to begin execution after a reset,
 /// ensuring that it can properly initialize and start running the program.
 ///
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Hash)]
 pub struct CPU {
     // cpu Core registers, exposed as public here for ease of access from external
     // examinors. This is all the 6502 has.

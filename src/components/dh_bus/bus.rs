@@ -3,7 +3,7 @@ use crate::components::dh_bus::ram_stats::{self, RamAccessType};
 use crate::components::dh_cpu::cpu::CPU;
 use crate::components::{END_OF_RAM, KB, START_OF_RAM};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Hash)]
 pub struct BUS {
     ram: [u8; KB(64)],      // 2Kb of ram
     sys_clock_counter: u32, // motherboards clock for busses

@@ -11,7 +11,8 @@ use crate::debug::types::DebuggerApp;
 use crate::debug::types::DebuggerMsg;
 use crate::debug::types::DebuggerState;
 
-use super::views::base;
+use super::types::UiContext;
+use super::views::*;
 
 impl Title<DebuggerState> for DebuggerApp {
     fn title(&self, _state: &DebuggerState) -> String {
@@ -32,10 +33,6 @@ impl Update<DebuggerState, DebuggerMsg> for DebuggerApp {
                         iced::widget::scrollable::Id::unique(),
                         offset,
                     ),
-                    iced::widget::scrollable::scroll_to(
-                        iced::widget::scrollable::Id::unique(),
-                        offset,
-                    ),
                 ]);
             }
             DebuggerMsg::Start => debug!("Session Started"),
@@ -44,9 +41,6 @@ impl Update<DebuggerState, DebuggerMsg> for DebuggerApp {
                 iced::keyboard::Key::Character(c) => {
                     if c == "q" {
                         info!("exiting...");
-                        // return iced::window::close::<DebuggerMsg>(
-                        //     iced::window::Id::unique(),
-                        // );
                         std::process::exit(0);
                     }
 
@@ -68,9 +62,6 @@ impl Update<DebuggerState, DebuggerMsg> for DebuggerApp {
                 iced::keyboard::Key::Named(n) => {
                     if n == iced::keyboard::key::Named::Escape {
                         info!("exiting...");
-                        // return iced::window::close::<DebuggerMsg>(
-                        //     iced::window::Id::unique(),
-                        // );
                         std::process::exit(0);
                     }
 
@@ -83,8 +74,9 @@ impl Update<DebuggerState, DebuggerMsg> for DebuggerApp {
                 }
                 _ => unimplemented!(),
             },
+            DebuggerMsg::RefreshContext(ctx) => state.context = ctx,
         }
-        println!("{:?}", state.cpu);
+        // println!("{:?}", state.cpu);
         iced::Task::none()
     }
 }
@@ -92,12 +84,17 @@ impl Update<DebuggerState, DebuggerMsg> for DebuggerApp {
 impl<'a> View<'a, DebuggerState, DebuggerMsg, iced::Theme, iced::Renderer>
     for DebuggerApp
 {
+    #[allow(refining_impl_trait)]
     fn view(
         &self,
         state: &'a DebuggerState,
-    ) -> impl Into<Element<'a, DebuggerMsg, iced::Theme, iced::Renderer>> {
-        // base(_state)
-        base(state)
+    ) -> Element<'a, DebuggerMsg, iced::Theme, iced::Renderer> {
+        match state.context {
+            UiContext::ShowRAM => ram_view::ram_base(state).into(),
+            UiContext::ShowCPU => cpu_view::cpu_base(state).into(),
+            UiContext::ShowPPU => ppu_view::ppu_base(state).into(),
+            UiContext::ShowAPU => apu_view::apu_base(state).into(),
+        }
     }
 }
 
