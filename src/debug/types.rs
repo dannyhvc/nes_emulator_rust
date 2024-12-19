@@ -21,6 +21,7 @@ pub enum DebuggerMsg {
 pub struct DebuggerState {
     pub bus: BUS,
     pub cpu: CPU,
+    // TODO: maybe incorporate a feild for looking over editable views in debugger
 }
 
 impl Default for DebuggerState {

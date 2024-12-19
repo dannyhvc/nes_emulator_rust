@@ -10,9 +10,11 @@ impl HexView for DebuggerState {
             word.into_iter().for_each(|byte| {
                 let hi_lo: String =
                     format!("{:X}{:X} ", *byte >> 4, *byte & 0x0F);
-                write!(&mut fmt_buff, "{}", hi_lo);
+                write!(&mut fmt_buff, "{}", hi_lo)
+                    .expect("Faild to set hex byte data for terminal view");
             });
-            writeln!(&mut fmt_buff, "");
+            writeln!(&mut fmt_buff, "")
+                .expect("Failed to set newline for terminal view");
         });
 
         String::from_utf8(fmt_buff)
@@ -33,7 +35,7 @@ impl HexView for DebuggerState {
     }
 }
 
-impl RawRamViewDimensions<0xF, 0xF0, 0x0000, 0x0800> for DebuggerState {
+impl RawRamViewDimensions<0x0F, 0xF0, 0x0, 0x80_00> for DebuggerState {
     fn first_n_words(&self) -> Vec<Vec<&u8>> {
         let binding = self.bus.ram();
         assert!(
