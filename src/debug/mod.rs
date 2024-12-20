@@ -12,7 +12,10 @@ pub mod views;
 
 pub fn run() -> anyhow::Result<()> {
     iced::application(DebuggerApp, DebuggerApp, DebuggerApp)
-        .settings(Settings::default())
+        .settings(Settings {
+            id: Some("main".into()),
+            ..Settings::default()
+        })
         .subscription(subscription)
         .exit_on_close_request(true)
         .run()
