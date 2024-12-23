@@ -609,7 +609,7 @@ impl CPU {
             y: 0x00,
             sp: 0x00,
             pc: 0x0000,
-            status: CpuFlags::E as u8,
+            status: 0x00,
             fetched: 0x00,
             temp: 0x0000,
             abs: 0x0000,

@@ -2,7 +2,6 @@ use self::ins_mneumonic::InstructionMneumonic;
 use super::{dh_bus::bus::BUS, dh_cpu::cpu::CPU};
 
 /// ```no_run
-/// E = 0       Empty Default
 /// C = 1 << 0  Carry Bit
 /// Z = 1 << 1  Zero
 /// I = 1 << 2  Disable Interrupts
@@ -14,7 +13,6 @@ use super::{dh_bus::bus::BUS, dh_cpu::cpu::CPU};
 /// ```
 #[derive(Debug, PartialEq, Eq)]
 pub enum CpuFlags {
-    E = 0,      // Empty default
     C = 1 << 0, // Carry Bit
     Z = 1 << 1, // Zero
     I = 1 << 2, // Disable Interrupts
@@ -24,9 +22,28 @@ pub enum CpuFlags {
     V = 1 << 6, // Overflow
     N = 1 << 7, // Negative
 }
+
+impl TryFrom<u8> for CpuFlags {
+    type Error = String;
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        match value {
+            x if x == Self::C as u8 => Ok(Self::C),
+            x if x == Self::Z as u8 => Ok(Self::Z),
+            x if x == Self::I as u8 => Ok(Self::I),
+            x if x == Self::D as u8 => Ok(Self::D),
+            x if x == Self::B as u8 => Ok(Self::B),
+            x if x == Self::U as u8 => Ok(Self::U),
+            x if x == Self::V as u8 => Ok(Self::V),
+            x if x == Self::N as u8 => Ok(Self::N),
+            _ => Err(format!("Cannot convert value into a CpuFlag")),
+        }
+    }
+}
+
 impl Default for CpuFlags {
     fn default() -> Self {
-        Self::E
+        Self::U
     }
 }
 
