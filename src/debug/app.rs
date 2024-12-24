@@ -4,7 +4,7 @@ use log::{debug, info};
 // iced imports
 use iced::application::{Title, Update, View};
 use iced::keyboard::key;
-use iced::{Element, Subscription, Task};
+use iced::{Element, Subscription};
 
 // debug imports
 use crate::debug::types::DebuggerApp;

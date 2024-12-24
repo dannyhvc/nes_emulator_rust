@@ -28,9 +28,7 @@ fn seperator() -> quad::Quad {
 /// # menu_bar_example
 ///
 /// The main entry point component for the debugger
-pub fn ram_base<'a>(
-    state: &DebuggerState,
-) -> impl Into<Element<'a, DebuggerMsg>> {
+pub fn ram_base<'a>(state: &DebuggerState) -> Element<'a, DebuggerMsg> {
     // closure for making a small seperator line in the menu
     let mb = menu_drop_down();
 
@@ -39,6 +37,7 @@ pub fn ram_base<'a>(
     main.push(debug_button_bar())
         .push(memory_scoller(state))
         .width(Length::Fill)
+        .into()
 }
 
 /// # debug_button_bar
@@ -56,18 +55,18 @@ fn debug_button_bar<'a>() -> impl Into<Element<'a, DebuggerMsg>> {
         button("reset")
             .on_press(DebuggerMsg::Start)
             .padding(padding),
-        button("clock")
-            .on_press(DebuggerMsg::Start)
-            .padding(padding),
-        button("show op")
-            .on_press(DebuggerMsg::Start)
-            .padding(padding),
-        button("show am")
-            .on_press(DebuggerMsg::Start)
-            .padding(padding),
-        button("show flags")
-            .on_press(DebuggerMsg::Start)
-            .padding(padding),
+        // button("clock")
+        //     .on_press(DebuggerMsg::Start)
+        //     .padding(padding),
+        // button("show op")
+        //     .on_press(DebuggerMsg::Start)
+        //     .padding(padding),
+        // button("show am")
+        //     .on_press(DebuggerMsg::Start)
+        //     .padding(padding),
+        // button("show flags")
+        //     .on_press(DebuggerMsg::Start)
+        //     .padding(padding),
     ]
     .spacing(10)]]
     .align_x(Alignment::Center)
@@ -124,21 +123,20 @@ fn addr_and_row<'a>(
     mem_addr: &mut usize,
 ) -> Row<'a, DebuggerMsg> {
     // fmt for the address of a row
-    let line_addr: Container<'_, DebuggerMsg> = Container::new(Text::new(
-        format!("${mem_addr:04X}: "),
-    ))
-    .padding(Padding {
-        top: 1f32,
-        right: 5f32,
-        bottom: 1f32,
-        left: 1f32,
-    });
+    let line_addr: Container<'_, DebuggerMsg> =
+        container(Text::new(format!("${mem_addr:04X}: "))).padding(Padding {
+            top: 1f32,
+            right: 5f32,
+            bottom: 1f32,
+            left: 1f32,
+        });
 
+    // Ram data widget map
     let data: Vec<Element<'_, DebuggerMsg>> = byte_row
         .into_iter()
         .map(|byte| {
             // converting since extend method on row only accepts `Element`
-            Container::new(Text::new(byte)).padding(5).into()
+            container(Text::new(byte)).padding(5).into()
         })
         .collect();
 

@@ -47,42 +47,40 @@ impl Default for DebuggerState {
     }
 }
 
-///
-/// A2 0A       LDX #10
-/// 8E 00 00    STX $0000
-/// A2 03       LDX #3
-/// 8E 01 00    STX $0001
-/// AC 00 00    LDY $0000
-/// A9 00       LDA #0
-/// 18          CLC
-/// 6D 01 00    ADC $0001
-/// 88          DEY
-/// D0 FA       BNE loop -- FA is the relative offset for the branch
-/// 8D 02 00    STA $0002
-/// EA          NOP
-/// EA          NOP
-/// EA          NOP
-///
+fn example_0() -> Vec<Vec<u16>> {
+    vec![
+        vec![0x8000, 0xA2, 0x0A],       // A2 0A       LDX #10
+        vec![0x8002, 0x8E, 0x00, 0x00], // 8E 00 00    STX $0000
+        vec![0x8005, 0xA2, 0x03],       // A2 03       LDX #3
+        vec![0x8007, 0x8E, 0x01, 0x00], // 8E 01 00    STX $0001
+        vec![0x800A, 0xAC, 0x00, 0x00], // AC 00 00    LDY $0000
+        vec![0x800D, 0xA9, 0x00],       // A9 00       LDA #0
+        vec![0x800F, 0x18],             // 18          CLC
+        vec![0x8010, 0x6D, 0x01, 0x00], // 6D 01 00    ADC $0001
+        vec![0x8040, 0x88],             // 88          DEY
+        vec![0x8050, 0xD0, 0xFA],       // D0 FA       BNE loop -- FA is the relative offset for the branch
+        vec![0x8070, 0x8D, 0x02, 0x00], // 8D 02 00    STA $0002
+        vec![0x80A0, 0xEA],             // EA          NOP
+        vec![0x80B0, 0xEA],             // EA          NOP
+        vec![0x80C0, 0xEA],             // EA          NOP
+    ]
+}
+
+fn example_1() -> Vec<Vec<u16>> {
+    vec![
+        vec![0x8000, 0xA2, 0x00],       // LDX #$00
+        vec![0x8002, 0x8E, 0x00, 0x00], // STX $0000
+        vec![0x8005, 0xE8],             // INX
+        vec![0x8006, 0x8E, 0x00, 0x00], // STX $0000
+        vec![0x8009, 0x4C, 0x05, 0x80], // JMP $8005
+    ]
+}
+
 fn mini_program(DebuggerState { cpu, bus, .. }: &mut DebuggerState) {
     const START: u16 = 0x0000;
     const STOP: u16 = 0xFFFF;
 
-    let ttape = vec![
-        vec![0x8000, 0xA2, 0x0A],
-        vec![0x8002, 0x8E, 0x00, 0x00],
-        vec![0x8005, 0xA2, 0x03],
-        vec![0x8007, 0x8E, 0x01, 0x00],
-        vec![0x800A, 0xAC, 0x00, 0x00],
-        vec![0x800D, 0xA9, 0x00],
-        vec![0x800F, 0x18],
-        vec![0x8010, 0x6D, 0x01, 0x00],
-        vec![0x8040, 0x88],
-        vec![0x8050, 0xD0, 0xFA],
-        vec![0x8070, 0x8D, 0x02, 0x00],
-        vec![0x80A0, 0xEA],
-        vec![0x80B0, 0xEA],
-        vec![0x80C0, 0xEA],
-    ];
+    let ttape = example_1();
 
     // Set reset vector (where the program will start exectuing from)
     bus.write(RESET_VECTOR_LOW_BYTE, 0x00);

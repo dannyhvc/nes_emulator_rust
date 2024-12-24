@@ -16,6 +16,7 @@ pub fn run() -> anyhow::Result<()> {
             id: Some("main".into()),
             ..Settings::default()
         })
+        .theme(|_| iced::Theme::Nord)
         .subscription(subscription)
         .exit_on_close_request(true)
         .run()
