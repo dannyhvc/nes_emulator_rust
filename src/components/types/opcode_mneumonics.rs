@@ -1,6 +1,6 @@
 #![allow(non_snake_case, non_camel_case_types)]
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum OpcodeMneumonic {
     ADC,
     AND,

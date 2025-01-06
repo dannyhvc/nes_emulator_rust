@@ -4,7 +4,7 @@ use crate::components::{
     dh_bus::bus::BUS, dh_cpu::cpu::CPU, RESET_VECTOR_HIGH_BYTE,
     RESET_VECTOR_LOW_BYTE,
 };
-use iced::{keyboard::Key, widget::scrollable::AbsoluteOffset};
+use iced::keyboard::Key;
 
 #[derive(Debug, Clone, Default)]
 pub struct DebuggerApp;
@@ -13,9 +13,15 @@ pub struct DebuggerApp;
 pub enum DebuggerMsg {
     Start,
     KeyPressed(Key),
-    SyncHeader(AbsoluteOffset),
     RefreshContext(UiContext),
+    CpuActions(CpuActions),
     End,
+}
+
+#[derive(Debug, Clone, PartialEq, Hash)]
+pub enum CpuActions {
+    Reset,
+    Clock,
 }
 
 #[derive(Debug, Clone, PartialEq, Hash)]
@@ -58,11 +64,11 @@ fn example_0() -> Vec<Vec<u16>> {
         vec![0x800F, 0x18],             // 18          CLC
         vec![0x8010, 0x6D, 0x01, 0x00], // 6D 01 00    ADC $0001
         vec![0x8040, 0x88],             // 88          DEY
-        vec![0x8050, 0xD0, 0xFA],       // D0 FA       BNE loop -- FA is the relative offset for the branch
+        vec![0x8050, 0xD0, 0xFA], // D0 FA       BNE loop -- FA is the relative offset for the branch
         vec![0x8070, 0x8D, 0x02, 0x00], // 8D 02 00    STA $0002
-        vec![0x80A0, 0xEA],             // EA          NOP
-        vec![0x80B0, 0xEA],             // EA          NOP
-        vec![0x80C0, 0xEA],             // EA          NOP
+        vec![0x80A0, 0xEA],       // EA          NOP
+        vec![0x80B0, 0xEA],       // EA          NOP
+        vec![0x80C0, 0xEA],       // EA          NOP
     ]
 }
 
@@ -77,8 +83,8 @@ fn example_1() -> Vec<Vec<u16>> {
 }
 
 fn mini_program(DebuggerState { cpu, bus, .. }: &mut DebuggerState) {
-    const START: u16 = 0x0000;
-    const STOP: u16 = 0xFFFF;
+    const START: u16 = 0x8000;
+    const STOP: u16 = 0x800B;
 
     let ttape = example_1();
 
@@ -91,20 +97,9 @@ fn mini_program(DebuggerState { cpu, bus, .. }: &mut DebuggerState) {
     bus.load_instruction_mem(ttape.clone());
 
     // NOTE this will add count of READ for all locations between START and STOP
-    let disasm: HashMap<u16, String> = CPU::disassemble(bus, START, STOP);
-    let disasm: Vec<_> = disasm
-        .iter()
-        .filter(|&(k, _v)| {
-            let mut retval = false;
-            ttape.iter().for_each(|ins| {
-                if *k == ins[0] {
-                    retval = true;
-                }
-            });
-
-            retval
-        })
-        .collect();
+    let mut disasm: Vec<_> =
+        CPU::disassemble(bus, START, STOP).into_iter().collect();
+    disasm.sort();
 
     dbg!(disasm);
     cpu.reset(&bus);

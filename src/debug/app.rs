@@ -27,14 +27,6 @@ impl Update<DebuggerState, DebuggerMsg> for DebuggerApp {
         message: DebuggerMsg,
     ) -> impl Into<iced::Task<DebuggerMsg>> {
         match message {
-            DebuggerMsg::SyncHeader(offset) => {
-                return iced::Task::batch(vec![
-                    iced::widget::scrollable::scroll_to(
-                        iced::widget::scrollable::Id::unique(),
-                        offset,
-                    ),
-                ]);
-            }
             DebuggerMsg::Start => debug!("Session Started"),
             DebuggerMsg::End => debug!("Session Ended"),
             DebuggerMsg::KeyPressed(key) => match key {
@@ -75,6 +67,7 @@ impl Update<DebuggerState, DebuggerMsg> for DebuggerApp {
                 _ => unimplemented!(),
             },
             DebuggerMsg::RefreshContext(ctx) => state.context = ctx,
+            DebuggerMsg::CpuActions(_) => todo!(),
         }
         // println!("{:?}", state.cpu);
         iced::Task::none()
