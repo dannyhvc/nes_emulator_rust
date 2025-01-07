@@ -1,0 +1,148 @@
+use super::super::types::*;
+use super::menu_drop_down;
+use crate::traits::*;
+use border::Radius;
+use iced::widget::*;
+use iced::*;
+use iced_aw::{quad, widget::InnerBounds};
+
+use super::super::types::DebuggerState;
+use iced::widget::column as col;
+
+/// # seperator
+///
+/// horizontal grey seperator component
+fn seperator() -> quad::Quad {
+    quad::Quad {
+        quad_color: Color::from([0.5; 3]).into(),
+        quad_border: Border {
+            radius: Radius::new(4.0),
+            ..Default::default()
+        },
+        inner_bounds: InnerBounds::Ratio(0.98, 0.2),
+        height: Length::Fixed(20.0),
+        ..Default::default()
+    }
+}
+
+/// # menu_bar_example
+///
+/// The main entry point component for the debugger
+pub fn ram_base<'a>(state: &DebuggerState) -> Element<'a, DebuggerMsg> {
+    // closure for making a small seperator line in the menu
+    let mb = menu_drop_down();
+
+    let main = col![mb];
+
+    main.push(debug_button_bar())
+        .push(memory_scoller(state))
+        .width(Length::Fill)
+        .into()
+}
+
+/// # debug_button_bar
+///
+///
+fn debug_button_bar<'a>() -> impl Into<Element<'a, DebuggerMsg>> {
+    let padding = Padding {
+        top: 10.0,
+        right: 45.0,
+        bottom: 10.0,
+        left: 45.0,
+    };
+
+    col![row![row![
+        button("reset")
+            .on_press(DebuggerMsg::Start)
+            .padding(padding),
+        // button("clock")
+        //     .on_press(DebuggerMsg::Start)
+        //     .padding(padding),
+        // button("show op")
+        //     .on_press(DebuggerMsg::Start)
+        //     .padding(padding),
+        // button("show am")
+        //     .on_press(DebuggerMsg::Start)
+        //     .padding(padding),
+        // button("show flags")
+        //     .on_press(DebuggerMsg::Start)
+        //     .padding(padding),
+    ]
+    .spacing(10)]]
+    .align_x(Alignment::Center)
+    .width(Length::Fill)
+}
+
+/// # memory_scoller
+///
+///
+fn memory_scoller<'a>(
+    state: &DebuggerState,
+) -> impl Into<Element<'a, DebuggerMsg>> {
+    // the first (0x10 Bytes) x (0xF0 Bytes)
+    let start_page_view: Column<'_, DebuggerMsg> = {
+        let start_bytes_view = state.editable_view(state.first_n_words());
+        let mut mem_addr = DebuggerState::START;
+
+        start_bytes_view
+            .into_iter() // Take ownership of the data
+            .fold(Column::new(), |column, byte_row| {
+                let row = addr_and_row(byte_row, &mut mem_addr);
+                column.push(row).align_x(Alignment::Center)
+            })
+    };
+
+    // the first (0x10 Bytes) x (0xF0 Bytes) from END
+    let end_page_view: Column<'_, DebuggerMsg> = {
+        let end_bytes_view = state.editable_view(state.last_n_words());
+        let mut mem_addr: usize = DebuggerState::END;
+
+        end_bytes_view
+            .into_iter() // Take ownership of the data
+            .fold(Column::new(), |column, byte_row| {
+                let row = addr_and_row(byte_row, &mut mem_addr);
+                column.push(row).align_x(Alignment::Center)
+            })
+    };
+
+    let main: Column<'_, DebuggerMsg> = {
+        const PADDING: u16 = 10u16;
+        const SPACING: u16 = 10u16;
+
+        col![start_page_view, seperator(), end_page_view]
+            .align_x(Alignment::Center)
+            .padding(PADDING)
+            .spacing(SPACING)
+    };
+
+    scrollable(main)
+}
+
+fn addr_and_row<'a>(
+    byte_row: Vec<String>,
+    mem_addr: &mut usize,
+) -> Row<'a, DebuggerMsg> {
+    // fmt for the address of a row
+    let line_addr: Container<'_, DebuggerMsg> =
+        container(Text::new(format!("${mem_addr:04X}: "))).padding(Padding {
+            top: 1f32,
+            right: 5f32,
+            bottom: 1f32,
+            left: 1f32,
+        });
+
+    // Ram data widget map
+    let data: Vec<Element<'_, DebuggerMsg>> = byte_row
+        .into_iter()
+        .map(|byte| {
+            // converting since extend method on row only accepts `Element`
+            container(Text::new(byte)).padding(5).into()
+        })
+        .collect();
+
+    // push the new remaining elements after the address s.t. they're to the right of the address
+    let row = row![line_addr].extend(data);
+
+    *mem_addr += 0x10;
+    row
+}

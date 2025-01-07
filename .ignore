@@ -1,5 +1,6 @@
 /.vscode
 /.github
 /target
-README.md
+/docs
+*.md
 rustfmt.toml
