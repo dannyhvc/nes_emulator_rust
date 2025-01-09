@@ -58,9 +58,9 @@ impl Update<DebuggerState, DebuggerMsg> for DebuggerApp {
                     }
 
                     if n == iced::keyboard::key::Named::Space {
-                        if !state.cpu.complete() {
+                        state.cpu.clock(&mut state.bus);
+                        while !state.cpu.complete() {
                             state.cpu.clock(&mut state.bus);
-                            info!("clocking the cpu...");
                         }
                     }
                 }

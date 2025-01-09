@@ -16,8 +16,7 @@ use iced_aw::{
     menu_bar, menu_items,
 };
 
-use super::types::DebuggerMsg;
-use crate::types::UiContext;
+use super::types::{DebuggerMsg, UiContext};
 
 fn menu_drop_down<'a>() -> Element<'a, DebuggerMsg> {
     menu_bar!((

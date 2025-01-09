@@ -15,7 +15,9 @@ macro_rules! bs {
     );
 }
 
-fn main() -> anyhow::Result<()> {
+use eyre::Result as ErrorOr;
+
+fn main() -> ErrorOr<()> {
     #[cfg(feature = "debug")]
     {
         use std::env::set_var;

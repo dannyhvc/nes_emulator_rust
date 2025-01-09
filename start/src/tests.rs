@@ -1,5 +1,5 @@
 #![allow(non_snake_case)]
-use crate::components::{dh_bus::bus::BUS, dh_cpu::cpu::CPU};
+use components::{dh_bus::bus::BUS, dh_cpu::cpu::CPU};
 use rstest::{fixture, rstest};
 
 #[fixture]

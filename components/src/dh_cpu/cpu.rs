@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use log::{debug, info};
+
 use crate::types::CpuInstruction;
 
 use crate::dh_bus::bus::BUS;
@@ -265,9 +267,19 @@ impl CPU {
 
             #[cfg(feature = "debug")]
             {
-                println!("{:?}", instruction);
+                // TODO: figure out a way to show the opcode and addrmode and data
+                //
+                info!("{}", self);
+                debug!("{:?}", instruction);
             }
         }
+
+        #[cfg(feature = "debug")]
+        {
+            info!("{}", self.cycles);
+            // info!("{}", self.pc);
+        }
+
         // Increment the internal clock count
         self._clock_count += 1;
         // Decrement the remaining cycles
@@ -294,18 +306,6 @@ impl CPU {
     /// if the `cycles` field of the struct is equal to zero, indicating that the operation has completed.
     /// Otherwise, it returns `false`, indicating that the operation is still in progress and needs to be
     /// executed for additional cycles.
-    ///
-    /// # Example
-    ///
-    /// ```no_run
-    /// struct Operation {
-    ///     Cycles: u8,
-    /// }
-    ///
-    /// let operation = Operation { Cycles: 0 };
-    ///
-    /// assert!(operation.complete());
-    /// ```
     ///
     #[inline(always)]
     pub const fn complete(&self) -> bool {

@@ -4,7 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-anyhow = "1.0.71"
 features = "0.10.0"
 geometry = "0.2.0"
 iced = { version = "0.13.1", features = ["debug", "advanced", "lazy"]}
@@ -13,6 +12,7 @@ iced_aw = "0.11.0"
 log = "0.4.22"
 pretty_env_logger = "0.5.0"
 components = { path = "../components", features = ["debug"], version ="0.1.0" }
+eyre = "0.6.12"
 
 
 [dev-dependencies]

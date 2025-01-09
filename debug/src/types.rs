@@ -70,6 +70,7 @@ fn example_0() -> Vec<Vec<u16>> {
     ]
 }
 
+/// Looping example
 fn example_1() -> Vec<Vec<u16>> {
     vec![
         vec![0x8000, 0xA2, 0x00],       // LDX #$00
