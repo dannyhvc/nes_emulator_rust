@@ -4,8 +4,8 @@ use log::{debug, info};
 
 use crate::types::CpuInstruction;
 
-use crate::dh_bus::bus::BUS;
-use crate::types::{addr_mnuemonic::AddrModeMneumonic, CpuFlags};
+use crate::dh_bus::BUS;
+use crate::types::{AddressingModeMneumonic, CpuFlag};
 use crate::{LOOKUP_TABLE, LOW_BIT_HIGH_BYTE, LOW_BYTE};
 
 /// # Mos 6502AD
@@ -122,9 +122,9 @@ impl CPU {
         self.sp.checked_sub(1).map(|v| self.sp = v).unwrap();
 
         // Set or clear CPU flags
-        self.set_flag(CpuFlags::B, false);
-        self.set_flag(CpuFlags::U, true);
-        self.set_flag(CpuFlags::I, true);
+        self.set_flag(CpuFlag::B, false);
+        self.set_flag(CpuFlag::U, true);
+        self.set_flag(CpuFlag::I, true);
 
         // Push the status register onto the stack
         let addr = LOW_BIT_HIGH_BYTE.checked_add(self.sp.into()).unwrap();
@@ -180,7 +180,7 @@ impl CPU {
     ///
     /// This function does not return errors but may cause unexpected behavior if the system bus or CPU state is incorrect.
     pub fn irq(&mut self, bus: &mut BUS) {
-        if self.get_flag(CpuFlags::I) == 0 {
+        if self.get_flag(CpuFlag::I) == 0 {
             // Push the high byte of the PC onto the stack
             let addr = LOW_BIT_HIGH_BYTE.checked_add(self.sp.into()).unwrap();
             bus.write(addr, (self.pc >> 8 & LOW_BYTE) as u8);
@@ -192,9 +192,9 @@ impl CPU {
             self.sp.checked_sub(1).map(|v| self.sp = v).unwrap();
 
             // Set or clear CPU flags
-            self.set_flag(CpuFlags::B, false);
-            self.set_flag(CpuFlags::U, true);
-            self.set_flag(CpuFlags::I, true);
+            self.set_flag(CpuFlag::B, false);
+            self.set_flag(CpuFlag::U, true);
+            self.set_flag(CpuFlag::I, true);
 
             // Push the status register onto the stack
             let addr = LOW_BIT_HIGH_BYTE.checked_add(self.sp.into()).unwrap();
@@ -245,7 +245,7 @@ impl CPU {
             // Fetch the opcode from memory using the program counter
             self.opcode = bus.read(self.pc, true);
             // Set the U flag (unused flag, often set during operations)
-            self.set_flag(CpuFlags::U, true);
+            self.set_flag(CpuFlag::U, true);
             // Increment the program counter
             self.pc += 1;
 
@@ -263,7 +263,7 @@ impl CPU {
             // Update the cycle count with any additional cycles from the operations
             self.cycles += added_cycle1 & added_cycle2;
             // Ensure the U flag remains set
-            self.set_flag(CpuFlags::U, true);
+            self.set_flag(CpuFlag::U, true);
 
             #[cfg(feature = "debug")]
             {
@@ -366,12 +366,12 @@ impl CPU {
             // matching the addressing mode
             match instruction.mneumonic.am_name {
                 // Implied addressing mode (no operand)
-                AddrModeMneumonic::IMP => {
+                AddressingModeMneumonic::IMP => {
                     instruction_address.push_str(" {IMP}");
                 }
 
                 // Immediate addressing mode (8-bit immediate value)
-                AddrModeMneumonic::IMM => {
+                AddressingModeMneumonic::IMM => {
                     _value = bus.read(address as u16, true);
                     address += 1;
                     high = 0x00;
@@ -382,7 +382,7 @@ impl CPU {
                 }
 
                 // Zero Page addressing mode (8-bit memory location address)
-                AddrModeMneumonic::ZP0 => {
+                AddressingModeMneumonic::ZP0 => {
                     low = bus.read(address as u16, true);
                     address += 1;
                     high = 0x00;
@@ -392,7 +392,7 @@ impl CPU {
                 }
 
                 // Zero Page X addressing mode (8-bit memory location address + X register)
-                AddrModeMneumonic::ZPX => {
+                AddressingModeMneumonic::ZPX => {
                     low = bus.read(address as u16, true);
                     address += 1;
                     high = 0x00;
@@ -401,7 +401,7 @@ impl CPU {
                 }
 
                 // Zero Page Y addressing mode (8-bit memory location address + X register)
-                AddrModeMneumonic::ZPY => {
+                AddressingModeMneumonic::ZPY => {
                     low = bus.read(address as u16, true);
                     address += 1;
                     high = 0x00;
@@ -411,7 +411,7 @@ impl CPU {
 
                 // If the opcode's addressing mode is indexed indirect with X offset, get the next
                 // byte, format it as a hex string with "($...,X)" and add it to the instruction address.
-                AddrModeMneumonic::IZX => {
+                AddressingModeMneumonic::IZX => {
                     low = bus.read(address as u16, true);
                     address += 1;
                     high = 0x00;
@@ -421,7 +421,7 @@ impl CPU {
 
                 // If the opcode's addressing mode is indirect indexed with Y offset, get the next
                 // byte, format it as a hex string with "($...),Y" and add it to the instruction address.
-                AddrModeMneumonic::IZY => {
+                AddressingModeMneumonic::IZY => {
                     low = bus.read(address as u16, true);
                     address += 1;
                     high = 0x00;
@@ -431,7 +431,7 @@ impl CPU {
 
                 // If the opcode's addressing mode is absolute, get the next two bytes, combine them,
                 // format them as a hex string with "{abs}", and add it to the instruction address.
-                AddrModeMneumonic::ABS => {
+                AddressingModeMneumonic::ABS => {
                     low = bus.read(address as u16, false);
                     address += 1;
                     high = bus.read(address as u16, false);
@@ -445,7 +445,7 @@ impl CPU {
 
                 // If the opcode's addressing mode is absolute with X offset, get the next two bytes,
                 // combine them, format them as a hex string with "{abx}", and add it to the instruction address.
-                AddrModeMneumonic::ABX => {
+                AddressingModeMneumonic::ABX => {
                     low = bus.read(address as u16, false);
                     address += 1;
                     high = bus.read(address as u16, false);
@@ -459,7 +459,7 @@ impl CPU {
 
                 // If the opcode's addressing mode is absolute with Y offset, get the next two bytes,
                 // combine them, format them as a hex string with "{aby}", and add it to the instruction address.
-                AddrModeMneumonic::ABY => {
+                AddressingModeMneumonic::ABY => {
                     low = bus.read(address as u16, false);
                     address += 1;
                     high = bus.read(address as u16, false);
@@ -473,7 +473,7 @@ impl CPU {
 
                 // If the opcode's addressing mode is indirect, get the next two bytes, combine them,
                 // format them as a hex string with "($...)", and add it to the instruction address.
-                AddrModeMneumonic::IND => {
+                AddressingModeMneumonic::IND => {
                     low = bus.read(address as u16, false);
                     address += 1;
                     high = bus.read(address as u16, false);
@@ -487,7 +487,7 @@ impl CPU {
 
                 // Check if the opcode corresponds to relative addressing mode
                 // Read the byte value at the memory address and increment the program counter
-                AddrModeMneumonic::REL => {
+                AddressingModeMneumonic::REL => {
                     _value = bus.read(address as u16, false);
                     address += 1;
 
@@ -552,7 +552,7 @@ impl CPU {
     #[inline]
     pub fn fetch(&mut self, bus: &BUS) -> u8 {
         let instruction: &CpuInstruction = &LOOKUP_TABLE[self.opcode as usize];
-        match instruction.mneumonic.am_name == AddrModeMneumonic::IMP {
+        match instruction.mneumonic.am_name == AddressingModeMneumonic::IMP {
             true => (),
             false => {
                 self.fetched = bus.read(self.abs, false);
@@ -597,7 +597,7 @@ impl CPU {
     /// ```
     ///
     #[inline(always)]
-    pub const fn get_flag(&self, f: CpuFlags) -> u8 {
+    pub const fn get_flag(&self, f: CpuFlag) -> u8 {
         (self.status & f as u8 > 0) as u8
     }
 
@@ -677,7 +677,7 @@ impl CPU {
         self.x = 0;
         self.y = 0;
         self.sp = 0xFD;
-        self.status = 0x00 | CpuFlags::U as u8;
+        self.status = 0x00 | CpuFlag::U as u8;
 
         self.rel = 0x0000;
         self.abs = 0x0000;
@@ -739,7 +739,7 @@ impl CPU {
     /// ```
     ///
     #[inline]
-    pub fn set_flag(&mut self, f: CpuFlags, conditional_set: bool) {
+    pub fn set_flag(&mut self, f: CpuFlag, conditional_set: bool) {
         if conditional_set {
             self.status |= f as u8;
         } else {

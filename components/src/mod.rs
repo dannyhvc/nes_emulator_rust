@@ -9,16 +9,16 @@ pub mod types;
 use self::dh_cpu::cpu::CPU;
 
 // addressing mode imports
-use self::types::addr_mnuemonic::AddrModeMneumonic;
-use self::types::addr_modes::M6502AddrModes;
+use self::types::AddressingModeMneumonic;
+use self::types::OpcodeMneumonic;
 
 // opcode mode imports
-use self::types::opcode_mneumonics::OpcodeMneumonic;
-use self::types::opcodes::M6502Opcodes;
+use self::types::AddressingMode;
+use self::types::Opcode;
 
 // instruction imports
-use self::types::ins_mneumonic::InstructionMneumonic;
 use self::types::CpuInstruction;
+use self::types::Mneumonic;
 
 pub const START_OF_RAM: u16 = 0x0000;
 pub const END_OF_RAM: u16 = 0xFFFF;

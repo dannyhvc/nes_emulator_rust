@@ -6,19 +6,14 @@ pub mod dh_ppu;
 pub mod types;
 
 // cpu import
-use self::dh_cpu::cpu::CPU;
+use crate::dh_cpu::CPU;
 
-// addressing mode imports
-use self::types::addr_mnuemonic::AddrModeMneumonic;
-use self::types::addr_modes::M6502AddrModes;
-
-// opcode mode imports
-use self::types::opcode_mneumonics::OpcodeMneumonic;
-use self::types::opcodes::M6502Opcodes;
-
-// instruction imports
-use self::types::ins_mneumonic::InstructionMneumonic;
-use self::types::CpuInstruction;
+use crate::types::AddressingMode;
+use crate::types::AddressingModeMneumonic;
+use crate::types::CpuInstruction;
+use crate::types::Mneumonic;
+use crate::types::Opcode;
+use crate::types::OpcodeMneumonic;
 
 pub const START_OF_RAM: u16 = 0x0000;
 pub const END_OF_RAM: u16 = 0xFFFF;
@@ -32,6 +27,7 @@ pub const RESET_VECTOR_LOW_BYTE: u16 = 0xFFFC;
 pub const INTERUPT_VECTOR: u16 = 0xFFFE;
 pub const NON_MASKABLE_INTERUPT_VECTOR: u16 = 0xFFFA;
 
+#[allow(non_snake_case)]
 #[inline(always)]
 pub const fn KB(n: u32) -> usize {
     const SIZEOF_1KB: u32 = 2_u32.pow(10_u32); // 1024
@@ -41,10 +37,10 @@ pub const fn KB(n: u32) -> usize {
 /// stands for INSTRUCTION MNEUMONIC
 macro_rules! imneumonic {
     ($op_code_ident: ident, $am_name: ident) => {
-        InstructionMneumonic::new(
+        Mneumonic::new(
             stringify!($op_code_ident),
             OpcodeMneumonic::$op_code_ident,
-            AddrModeMneumonic::$am_name,
+            AddressingModeMneumonic::$am_name,
         )
     };
 }

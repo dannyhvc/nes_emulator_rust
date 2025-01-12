@@ -1,5 +1,5 @@
-use self::ins_mneumonic::InstructionMneumonic;
-use super::{dh_bus::bus::BUS, dh_cpu::cpu::CPU};
+// use self::instruction_mneumonic::InstructionMneumonic;
+use super::{dh_bus::BUS, dh_cpu::CPU};
 
 /// ```no_run
 /// C = 1 << 0  Carry Bit
@@ -12,7 +12,7 @@ use super::{dh_bus::bus::BUS, dh_cpu::cpu::CPU};
 /// N = 1 << 7  Negative
 /// ```
 #[derive(Debug, PartialEq, Eq)]
-pub enum CpuFlags {
+pub enum CpuFlag {
     C = 1 << 0, // Carry Bit
     Z = 1 << 1, // Zero
     I = 1 << 2, // Disable Interrupts
@@ -23,7 +23,7 @@ pub enum CpuFlags {
     N = 1 << 7, // Negative
 }
 
-impl TryFrom<u8> for CpuFlags {
+impl TryFrom<u8> for CpuFlag {
     type Error = String;
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
@@ -41,7 +41,7 @@ impl TryFrom<u8> for CpuFlags {
     }
 }
 
-impl Default for CpuFlags {
+impl Default for CpuFlag {
     fn default() -> Self {
         Self::U
     }
@@ -64,14 +64,192 @@ impl Default for CpuFlags {
 /// opcode and addressing mode logic for the instruction, respectively.
 #[derive(Debug)]
 pub struct CpuInstruction {
-    pub mneumonic: InstructionMneumonic,
+    pub mneumonic: Mneumonic,
     pub op_code: for<'a, 'b> fn(&'a mut CPU, &'b mut BUS) -> u8, // OPCODE
     pub addr_mode: for<'a, 'b> fn(&'a mut CPU, &'b mut BUS) -> u8, // ADDRESSING MODE
     pub cycles: u8, // CYCLE COUNT
 }
 
-pub mod addr_mnuemonic;
-pub mod addr_modes;
-pub mod ins_mneumonic;
-pub mod opcode_mneumonics;
-pub mod opcodes;
+/// `InstructionMneumonic` is a structure that represents the mnemonic of an instruction.
+///
+/// # Fields
+///
+/// * `name: &'static str` - This field represents the name of the instruction mnemonic.
+/// * `op_code`: [`OpcodeMneumonic`] - This field represents the opcode of the instruction mnemonic.
+/// * `am_name`: [`AddrModeMneumonic`] - This field represents the addressing mode of the instruction mnemonic.
+#[derive(Debug)]
+pub struct Mneumonic {
+    pub name: &'static str,
+    pub op_code: OpcodeMneumonic,
+    pub am_name: AddressingModeMneumonic,
+}
+impl Mneumonic {
+    pub fn new(
+        name: &'static str,
+        op_name: OpcodeMneumonic,
+        am_name: AddressingModeMneumonic,
+    ) -> Self {
+        Self {
+            name,
+            op_code: op_name,
+            am_name,
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum AddressingModeMneumonic {
+    IMP,
+    IMM,
+    ZP0,
+    ZPX,
+    ZPY,
+    ABS,
+    ABX,
+    ABY,
+    REL,
+    IND,
+    IZX,
+    IZY,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub enum OpcodeMneumonic {
+    ADC,
+    AND,
+    ASL,
+    BCC,
+    BCS,
+    BEQ,
+    BIT,
+    BMI,
+    BNE,
+    BPL,
+    BRK,
+    BVC,
+    BVS,
+    CLC,
+    CLD,
+    CLI,
+    CLV,
+    CMP,
+    CPX,
+    CPY,
+    DEC,
+    DEX,
+    DEY,
+    EOR,
+    INC,
+    INX,
+    INY,
+    JMP,
+    JSR,
+    LDA,
+    LDX,
+    LDY,
+    LSR,
+    NOP,
+    ORA,
+    PHA,
+    PHP,
+    PLA,
+    PLP,
+    ROL,
+    ROR,
+    RTI,
+    RTS,
+    SBC,
+    SEC,
+    SED,
+    SEI,
+    STA,
+    STX,
+    STY,
+    TAX,
+    TAY,
+    TSX,
+    TXA,
+    TXS,
+    TYA,
+    XXX,
+}
+
+pub trait AddressingMode {
+    fn IMP(&mut self, bus: &mut BUS) -> u8;
+    fn IMM(&mut self, bus: &mut BUS) -> u8;
+    fn ZP0(&mut self, bus: &mut BUS) -> u8;
+    fn ZPX(&mut self, bus: &mut BUS) -> u8;
+    fn ZPY(&mut self, bus: &mut BUS) -> u8;
+    fn ABS(&mut self, bus: &mut BUS) -> u8;
+    fn ABX(&mut self, bus: &mut BUS) -> u8;
+    fn ABY(&mut self, bus: &mut BUS) -> u8;
+    fn REL(&mut self, bus: &mut BUS) -> u8;
+    fn IND(&mut self, bus: &mut BUS) -> u8;
+    fn IZX(&mut self, bus: &mut BUS) -> u8;
+    fn IZY(&mut self, bus: &mut BUS) -> u8;
+}
+
+pub trait Opcode {
+    fn ADC(&mut self, bus: &mut BUS) -> u8;
+    fn AND(&mut self, bus: &mut BUS) -> u8;
+    fn ASL(&mut self, bus: &mut BUS) -> u8;
+    fn BCC(&mut self, bus: &mut BUS) -> u8;
+    fn BCS(&mut self, bus: &mut BUS) -> u8;
+    fn BEQ(&mut self, bus: &mut BUS) -> u8;
+    fn BIT(&mut self, bus: &mut BUS) -> u8;
+    fn BMI(&mut self, bus: &mut BUS) -> u8;
+    fn BNE(&mut self, bus: &mut BUS) -> u8;
+    fn BPL(&mut self, bus: &mut BUS) -> u8;
+    fn BRK(&mut self, bus: &mut BUS) -> u8;
+    fn BVC(&mut self, bus: &mut BUS) -> u8;
+    fn BVS(&mut self, bus: &mut BUS) -> u8;
+    fn CLC(&mut self, bus: &mut BUS) -> u8;
+    fn CLD(&mut self, bus: &mut BUS) -> u8;
+    fn CLI(&mut self, bus: &mut BUS) -> u8;
+    fn CLV(&mut self, bus: &mut BUS) -> u8;
+    fn CMP(&mut self, bus: &mut BUS) -> u8;
+    fn CPX(&mut self, bus: &mut BUS) -> u8;
+    fn CPY(&mut self, bus: &mut BUS) -> u8;
+    fn DEC(&mut self, bus: &mut BUS) -> u8;
+    fn DEX(&mut self, bus: &mut BUS) -> u8;
+    fn DEY(&mut self, bus: &mut BUS) -> u8;
+    fn EOR(&mut self, bus: &mut BUS) -> u8;
+    fn INC(&mut self, bus: &mut BUS) -> u8;
+    fn INX(&mut self, bus: &mut BUS) -> u8;
+    fn INY(&mut self, bus: &mut BUS) -> u8;
+    fn JMP(&mut self, bus: &mut BUS) -> u8;
+    fn JSR(&mut self, bus: &mut BUS) -> u8;
+    fn LDA(&mut self, bus: &mut BUS) -> u8;
+    fn LDX(&mut self, bus: &mut BUS) -> u8;
+    fn LDY(&mut self, bus: &mut BUS) -> u8;
+    fn LSR(&mut self, bus: &mut BUS) -> u8;
+    fn NOP(&mut self, bus: &mut BUS) -> u8;
+    fn ORA(&mut self, bus: &mut BUS) -> u8;
+    fn PHA(&mut self, bus: &mut BUS) -> u8;
+    fn PHP(&mut self, bus: &mut BUS) -> u8;
+    fn PLA(&mut self, bus: &mut BUS) -> u8;
+    fn PLP(&mut self, bus: &mut BUS) -> u8;
+    fn ROL(&mut self, bus: &mut BUS) -> u8;
+    fn ROR(&mut self, bus: &mut BUS) -> u8;
+    fn RTI(&mut self, bus: &mut BUS) -> u8;
+    fn RTS(&mut self, bus: &mut BUS) -> u8;
+    fn SBC(&mut self, bus: &mut BUS) -> u8;
+    fn SEC(&mut self, bus: &mut BUS) -> u8;
+    fn SED(&mut self, bus: &mut BUS) -> u8;
+    fn SEI(&mut self, bus: &mut BUS) -> u8;
+    fn STA(&mut self, bus: &mut BUS) -> u8;
+    fn STX(&mut self, bus: &mut BUS) -> u8;
+    fn STY(&mut self, bus: &mut BUS) -> u8;
+    fn TAX(&mut self, bus: &mut BUS) -> u8;
+    fn TAY(&mut self, bus: &mut BUS) -> u8;
+    fn TSX(&mut self, bus: &mut BUS) -> u8;
+    fn TXA(&mut self, bus: &mut BUS) -> u8;
+    fn TXS(&mut self, bus: &mut BUS) -> u8;
+    fn TYA(&mut self, bus: &mut BUS) -> u8;
+    fn XXX(&mut self, bus: &mut BUS) -> u8;
+}
+// pub mod addr_mnuemonic;
+// pub mod addr_modes;
+// pub mod instruction_mneumonic;
+// pub mod opcode_mneumonics;
+// pub mod opcodes;

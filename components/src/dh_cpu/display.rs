@@ -1,4 +1,4 @@
-use crate::dh_cpu::cpu::CPU;
+use crate::dh_cpu::CPU;
 
 impl std::fmt::Display for CPU {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {

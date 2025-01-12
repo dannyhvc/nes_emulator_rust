@@ -2,7 +2,7 @@
 use crate::dh_bus::ram_stats::RamAccessType;
 use crate::dh_bus::ram_stats::{self, RamAccessType};
 
-use crate::dh_cpu::cpu::CPU;
+use crate::dh_cpu::CPU;
 use crate::{END_OF_RAM, KB, START_OF_RAM};
 
 #[derive(Debug, Clone, Hash)]

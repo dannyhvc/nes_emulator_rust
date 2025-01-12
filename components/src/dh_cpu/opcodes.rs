@@ -1,11 +1,9 @@
-use crate::dh_cpu::cpu::CPU;
-use crate::types::{opcodes::M6502Opcodes, CpuFlags};
-use crate::M6502AddrModes;
-use crate::{
-    dh_bus::bus::BUS, HIGH_BYTE, LOOKUP_TABLE, LOW_BYTE, TOP_BIT_THRESH,
-};
+use crate::dh_cpu::CPU;
+use crate::types::{CpuFlag, Opcode};
+use crate::AddressingMode;
+use crate::{dh_bus::BUS, HIGH_BYTE, LOOKUP_TABLE, LOW_BYTE, TOP_BIT_THRESH};
 
-impl M6502Opcodes for CPU {
+impl Opcode for CPU {
     /// Perform an addition with carry of the value fetched from the memory pointed to by the program
     /// counter to the accumulator register of the MOS 6502 CPU.
     ///
@@ -63,17 +61,17 @@ impl M6502Opcodes for CPU {
         // Add is performed in 16-bit domain for emulation to capture any
         // carry bit, which will exist in bit 8 of the 16-bit word
         self.temp =
-            (self.a + self.fetch(bus) + self.get_flag(CpuFlags::C)).into();
+            (self.a + self.fetch(bus) + self.get_flag(CpuFlag::C)).into();
 
         // The carry flag out exists in the high byte bit 0
-        self.set_flag(CpuFlags::C, self.temp > 255);
+        self.set_flag(CpuFlag::C, self.temp > 255);
 
         // The Zero flag is set if the result is 0
-        self.set_flag(CpuFlags::Z, (self.temp & LOW_BYTE) == 0);
+        self.set_flag(CpuFlag::Z, (self.temp & LOW_BYTE) == 0);
 
         // The signed Overflow flag is set based on all that up there! :D
         self.set_flag(
-            CpuFlags::V,
+            CpuFlag::V,
             !(self.a as u16 ^ self.fetched as u16)
                 & (self.a as u16 ^ self.temp)
                 & 0x0080
@@ -81,7 +79,7 @@ impl M6502Opcodes for CPU {
         );
 
         // The negative flag is set to the most significant bit of the result
-        self.set_flag(CpuFlags::N, (self.temp & TOP_BIT_THRESH) != 0);
+        self.set_flag(CpuFlag::N, (self.temp & TOP_BIT_THRESH) != 0);
 
         // Load the result into the accumulator (it's 8-bit dont forget!)
         self.a = ((self.temp as u16) & LOW_BYTE) as u8;
@@ -137,8 +135,8 @@ impl M6502Opcodes for CPU {
     /// ```
     fn AND(&mut self, bus: &mut BUS) -> u8 {
         self.a &= self.fetch(bus);
-        self.set_flag(CpuFlags::Z, self.a == 0x00);
-        self.set_flag(CpuFlags::N, (self.a & TOP_BIT_THRESH as u8) != 0);
+        self.set_flag(CpuFlag::Z, self.a == 0x00);
+        self.set_flag(CpuFlag::N, (self.a & TOP_BIT_THRESH as u8) != 0);
         1u8
     }
 
@@ -207,9 +205,9 @@ impl M6502Opcodes for CPU {
     #[inline]
     fn ASL(&mut self, bus: &mut BUS) -> u8 {
         self.temp = (self.fetch(bus) << 1).into();
-        self.set_flag(CpuFlags::C, (self.temp & HIGH_BYTE) > 0);
-        self.set_flag(CpuFlags::Z, (self.temp & LOW_BYTE) == 0);
-        self.set_flag(CpuFlags::N, (self.temp & TOP_BIT_THRESH) != 0);
+        self.set_flag(CpuFlag::C, (self.temp & HIGH_BYTE) > 0);
+        self.set_flag(CpuFlag::Z, (self.temp & LOW_BYTE) == 0);
+        self.set_flag(CpuFlag::N, (self.temp & TOP_BIT_THRESH) != 0);
         if LOOKUP_TABLE[self.opcode as usize].addr_mode as usize
             == CPU::IMP as usize
         {
@@ -238,7 +236,7 @@ impl M6502Opcodes for CPU {
     /// The number of cycles that the instruction has consumed, which is always 0.
     #[inline]
     fn BCC(&mut self, _: &mut BUS) -> u8 {
-        if self.get_flag(CpuFlags::C) == 0_u8 {
+        if self.get_flag(CpuFlag::C) == 0_u8 {
             self.cycles += 1_u8;
             self.abs = self.pc + self.rel;
 
@@ -306,7 +304,7 @@ impl M6502Opcodes for CPU {
     /// ```
     #[inline]
     fn BCS(&mut self, _: &mut BUS) -> u8 {
-        if self.get_flag(CpuFlags::C) == 1_u8 {
+        if self.get_flag(CpuFlag::C) == 1_u8 {
             self.cycles += 1_u8;
             self.abs = self.pc + self.rel;
 
@@ -374,7 +372,7 @@ impl M6502Opcodes for CPU {
     /// ```
     #[inline]
     fn BEQ(&mut self, _: &mut BUS) -> u8 {
-        if self.get_flag(CpuFlags::Z) == 1_u8 {
+        if self.get_flag(CpuFlag::Z) == 1_u8 {
             self.cycles += 1_u8;
             self.abs = self.pc + self.rel;
 
@@ -445,9 +443,9 @@ impl M6502Opcodes for CPU {
     #[inline]
     fn BIT(&mut self, bus: &mut BUS) -> u8 {
         self.temp = (self.a & self.fetch(bus)) as u16;
-        self.set_flag(CpuFlags::Z, (self.temp & LOW_BYTE) == 0x00);
-        self.set_flag(CpuFlags::N, (self.fetched & (1 << 7)) != 0);
-        self.set_flag(CpuFlags::V, (self.fetched & (1 << 6)) != 0);
+        self.set_flag(CpuFlag::Z, (self.temp & LOW_BYTE) == 0x00);
+        self.set_flag(CpuFlag::N, (self.fetched & (1 << 7)) != 0);
+        self.set_flag(CpuFlag::V, (self.fetched & (1 << 6)) != 0);
         0_u8
     }
 
@@ -501,7 +499,7 @@ impl M6502Opcodes for CPU {
     /// ```
     #[inline]
     fn BMI(&mut self, _: &mut BUS) -> u8 {
-        if self.get_flag(CpuFlags::N) == 1_u8 {
+        if self.get_flag(CpuFlag::N) == 1_u8 {
             self.cycles += 1_u8;
             self.abs = self.pc + self.rel;
 
@@ -562,7 +560,7 @@ impl M6502Opcodes for CPU {
     /// ```
     #[inline]
     fn BNE(&mut self, _: &mut BUS) -> u8 {
-        if self.get_flag(CpuFlags::Z) == 0_u8 {
+        if self.get_flag(CpuFlag::Z) == 0_u8 {
             self.cycles += 1_u8;
             self.abs = self.pc + self.rel;
 
@@ -630,7 +628,7 @@ impl M6502Opcodes for CPU {
     /// ```
     #[inline]
     fn BPL(&mut self, _: &mut BUS) -> u8 {
-        if self.get_flag(CpuFlags::N) == 0 {
+        if self.get_flag(CpuFlag::N) == 0 {
             self.cycles += 1;
             self.abs = self.pc + self.rel;
 
@@ -682,7 +680,7 @@ impl M6502Opcodes for CPU {
     fn BRK(&mut self, bus: &mut BUS) -> u8 {
         self.pc += 1;
 
-        self.set_flag(CpuFlags::I, true);
+        self.set_flag(CpuFlag::I, true);
         bus.write(
             (0x0100_u16 + self.sp as u16).into(),
             (self.pc >> 8 & LOW_BYTE) as u8,
@@ -694,10 +692,10 @@ impl M6502Opcodes for CPU {
         );
         self.sp -= 1;
 
-        self.set_flag(CpuFlags::B, true);
+        self.set_flag(CpuFlag::B, true);
         bus.write((0x0100_u16 + self.sp as u16).into(), self.status);
         self.sp -= 1;
-        self.set_flag(CpuFlags::B, true);
+        self.set_flag(CpuFlag::B, true);
 
         self.pc = ((bus.read(0xFFFE, false) != 0x0u8)
             | (bus.read(0xFFFF, false) != 0x0u8))
@@ -707,7 +705,7 @@ impl M6502Opcodes for CPU {
 
     #[inline]
     fn BVC(&mut self, _: &mut BUS) -> u8 {
-        if self.get_flag(CpuFlags::V) == 0u8 {
+        if self.get_flag(CpuFlag::V) == 0u8 {
             self.cycles += 1;
             self.abs = self.pc + self.rel;
 
@@ -721,7 +719,7 @@ impl M6502Opcodes for CPU {
 
     #[inline]
     fn BVS(&mut self, _: &mut BUS) -> u8 {
-        if self.get_flag(CpuFlags::V) == 1u8 {
+        if self.get_flag(CpuFlag::V) == 1u8 {
             self.cycles += 1;
             self.abs = self.pc + self.rel;
 
@@ -735,34 +733,34 @@ impl M6502Opcodes for CPU {
 
     #[inline]
     fn CLC(&mut self, _: &mut BUS) -> u8 {
-        self.set_flag(CpuFlags::C, false);
+        self.set_flag(CpuFlag::C, false);
         0x0u8
     }
 
     #[inline]
     fn CLD(&mut self, _: &mut BUS) -> u8 {
-        self.set_flag(CpuFlags::D, false);
+        self.set_flag(CpuFlag::D, false);
         0u8
     }
 
     #[inline]
     fn CLI(&mut self, _: &mut BUS) -> u8 {
-        self.set_flag(CpuFlags::I, false);
+        self.set_flag(CpuFlag::I, false);
         0u8
     }
 
     #[inline]
     fn CLV(&mut self, _: &mut BUS) -> u8 {
-        self.set_flag(CpuFlags::V, false);
+        self.set_flag(CpuFlag::V, false);
         0u8
     }
 
     #[inline]
     fn CMP(&mut self, bus: &mut BUS) -> u8 {
         self.temp = (self.a - self.fetch(bus)).into();
-        self.set_flag(CpuFlags::C, self.a >= self.fetched);
-        self.set_flag(CpuFlags::Z, self.temp & LOW_BYTE == 0x0000);
-        self.set_flag(CpuFlags::N, self.temp & TOP_BIT_THRESH != 0x0000);
+        self.set_flag(CpuFlag::C, self.a >= self.fetched);
+        self.set_flag(CpuFlag::Z, self.temp & LOW_BYTE == 0x0000);
+        self.set_flag(CpuFlag::N, self.temp & TOP_BIT_THRESH != 0x0000);
         1u8
     }
 
@@ -782,18 +780,18 @@ impl M6502Opcodes for CPU {
     #[inline]
     fn CPX(&mut self, bus: &mut BUS) -> u8 {
         self.temp = (self.x - self.fetch(bus)).into();
-        self.set_flag(CpuFlags::C, self.x >= self.fetched);
-        self.set_flag(CpuFlags::Z, self.temp & LOW_BYTE == 0x0000);
-        self.set_flag(CpuFlags::N, self.temp & TOP_BIT_THRESH != 0x0000);
+        self.set_flag(CpuFlag::C, self.x >= self.fetched);
+        self.set_flag(CpuFlag::Z, self.temp & LOW_BYTE == 0x0000);
+        self.set_flag(CpuFlag::N, self.temp & TOP_BIT_THRESH != 0x0000);
         0u8
     }
 
     #[inline]
     fn CPY(&mut self, bus: &mut BUS) -> u8 {
         self.temp = (self.y - self.fetch(bus)).into();
-        self.set_flag(CpuFlags::C, self.y >= self.fetched);
-        self.set_flag(CpuFlags::Z, self.temp & LOW_BYTE == 0x0000);
-        self.set_flag(CpuFlags::N, self.temp & TOP_BIT_THRESH != 0x0000);
+        self.set_flag(CpuFlag::C, self.y >= self.fetched);
+        self.set_flag(CpuFlag::Z, self.temp & LOW_BYTE == 0x0000);
+        self.set_flag(CpuFlag::N, self.temp & TOP_BIT_THRESH != 0x0000);
         0u8
     }
 
@@ -801,32 +799,32 @@ impl M6502Opcodes for CPU {
     fn DEC(&mut self, bus: &mut BUS) -> u8 {
         self.temp = self.fetch(bus) as u16 - 1;
         bus.write(self.abs, (self.temp & LOW_BYTE) as u8);
-        self.set_flag(CpuFlags::Z, self.temp & LOW_BYTE == 0x0000);
-        self.set_flag(CpuFlags::N, self.temp & TOP_BIT_THRESH != 0x0000);
+        self.set_flag(CpuFlag::Z, self.temp & LOW_BYTE == 0x0000);
+        self.set_flag(CpuFlag::N, self.temp & TOP_BIT_THRESH != 0x0000);
         0u8
     }
 
     #[inline]
     fn DEX(&mut self, _: &mut BUS) -> u8 {
         self.x -= 1;
-        self.set_flag(CpuFlags::Z, self.x == 0x00);
-        self.set_flag(CpuFlags::N, self.x & TOP_BIT_THRESH as u8 != 0x0000);
+        self.set_flag(CpuFlag::Z, self.x == 0x00);
+        self.set_flag(CpuFlag::N, self.x & TOP_BIT_THRESH as u8 != 0x0000);
         0u8
     }
 
     #[inline]
     fn DEY(&mut self, _: &mut BUS) -> u8 {
         self.y -= 1;
-        self.set_flag(CpuFlags::Z, self.y == 0x00);
-        self.set_flag(CpuFlags::N, self.y & TOP_BIT_THRESH as u8 != 0x0000);
+        self.set_flag(CpuFlag::Z, self.y == 0x00);
+        self.set_flag(CpuFlag::N, self.y & TOP_BIT_THRESH as u8 != 0x0000);
         0u8
     }
 
     #[inline]
     fn EOR(&mut self, bus: &mut BUS) -> u8 {
         self.a ^= self.fetch(bus);
-        self.set_flag(CpuFlags::Z, self.y == 0x00);
-        self.set_flag(CpuFlags::N, self.y & TOP_BIT_THRESH as u8 != 0x0000);
+        self.set_flag(CpuFlag::Z, self.y == 0x00);
+        self.set_flag(CpuFlag::N, self.y & TOP_BIT_THRESH as u8 != 0x0000);
         1u8
     }
 
@@ -834,24 +832,24 @@ impl M6502Opcodes for CPU {
     fn INC(&mut self, bus: &mut BUS) -> u8 {
         self.temp = self.fetch(bus) as u16 + 1;
         bus.write(self.abs, (self.temp & LOW_BYTE) as u8);
-        self.set_flag(CpuFlags::Z, self.temp & LOW_BYTE == 0x0000);
-        self.set_flag(CpuFlags::N, self.temp & TOP_BIT_THRESH != 0x0000);
+        self.set_flag(CpuFlag::Z, self.temp & LOW_BYTE == 0x0000);
+        self.set_flag(CpuFlag::N, self.temp & TOP_BIT_THRESH != 0x0000);
         0u8
     }
 
     #[inline]
     fn INX(&mut self, _: &mut BUS) -> u8 {
         self.x += 1;
-        self.set_flag(CpuFlags::Z, self.x == 0x00);
-        self.set_flag(CpuFlags::N, self.x & TOP_BIT_THRESH as u8 != 0x0000);
+        self.set_flag(CpuFlag::Z, self.x == 0x00);
+        self.set_flag(CpuFlag::N, self.x & TOP_BIT_THRESH as u8 != 0x0000);
         0u8
     }
 
     #[inline]
     fn INY(&mut self, _: &mut BUS) -> u8 {
         self.y += 1;
-        self.set_flag(CpuFlags::Z, self.y == 0x00);
-        self.set_flag(CpuFlags::N, self.y & TOP_BIT_THRESH as u8 != 0x0000);
+        self.set_flag(CpuFlag::Z, self.y == 0x00);
+        self.set_flag(CpuFlag::N, self.y & TOP_BIT_THRESH as u8 != 0x0000);
         0u8
     }
 
@@ -900,16 +898,16 @@ impl M6502Opcodes for CPU {
     #[inline]
     fn LDA(&mut self, bus: &mut BUS) -> u8 {
         self.a = self.fetch(bus); // using a
-        self.set_flag(CpuFlags::Z, self.a == 0x00);
-        self.set_flag(CpuFlags::N, self.a & TOP_BIT_THRESH as u8 != 0x00);
+        self.set_flag(CpuFlag::Z, self.a == 0x00);
+        self.set_flag(CpuFlag::N, self.a & TOP_BIT_THRESH as u8 != 0x00);
         1u8
     }
 
     #[inline]
     fn LDX(&mut self, bus: &mut BUS) -> u8 {
         self.x = self.fetch(bus);
-        self.set_flag(CpuFlags::Z, self.x == 0x00);
-        self.set_flag(CpuFlags::N, self.x & TOP_BIT_THRESH as u8 != 0x00);
+        self.set_flag(CpuFlag::Z, self.x == 0x00);
+        self.set_flag(CpuFlag::N, self.x & TOP_BIT_THRESH as u8 != 0x00);
         1u8
     }
 
@@ -934,17 +932,17 @@ impl M6502Opcodes for CPU {
     #[inline]
     fn LDY(&mut self, bus: &mut BUS) -> u8 {
         self.y = self.fetch(bus);
-        self.set_flag(CpuFlags::Z, self.y == 0x00);
-        self.set_flag(CpuFlags::N, self.y & TOP_BIT_THRESH as u8 != 0x00);
+        self.set_flag(CpuFlag::Z, self.y == 0x00);
+        self.set_flag(CpuFlag::N, self.y & TOP_BIT_THRESH as u8 != 0x00);
         1u8
     }
 
     #[inline]
     fn LSR(&mut self, bus: &mut BUS) -> u8 {
         self.temp = (self.fetch(bus) >> 1) as u16;
-        self.set_flag(CpuFlags::C, self.fetched & 0x0001 != 0x0000);
-        self.set_flag(CpuFlags::Z, self.temp & LOW_BYTE == 0x0000);
-        self.set_flag(CpuFlags::N, self.temp & TOP_BIT_THRESH != 0x0000);
+        self.set_flag(CpuFlag::C, self.fetched & 0x0001 != 0x0000);
+        self.set_flag(CpuFlag::Z, self.temp & LOW_BYTE == 0x0000);
+        self.set_flag(CpuFlag::N, self.temp & TOP_BIT_THRESH != 0x0000);
         if LOOKUP_TABLE[self.opcode as usize].addr_mode as usize
             == CPU::IMP as usize
         {
@@ -966,8 +964,8 @@ impl M6502Opcodes for CPU {
     #[inline]
     fn ORA(&mut self, bus: &mut BUS) -> u8 {
         self.a |= self.fetch(bus);
-        self.set_flag(CpuFlags::Z, self.a == 0x00);
-        self.set_flag(CpuFlags::N, self.a & TOP_BIT_THRESH as u8 != 0x00);
+        self.set_flag(CpuFlag::Z, self.a == 0x00);
+        self.set_flag(CpuFlag::N, self.a & TOP_BIT_THRESH as u8 != 0x00);
         1u8
     }
 
@@ -982,10 +980,10 @@ impl M6502Opcodes for CPU {
     fn PHP(&mut self, bus: &mut BUS) -> u8 {
         bus.write(
             0x0100 + self.sp as u16,
-            self.status | CpuFlags::B as u8 | CpuFlags::U as u8,
+            self.status | CpuFlag::B as u8 | CpuFlag::U as u8,
         );
-        self.set_flag(CpuFlags::B, false);
-        self.set_flag(CpuFlags::U, false);
+        self.set_flag(CpuFlag::B, false);
+        self.set_flag(CpuFlag::U, false);
         self.sp -= 1;
         0u8
     }
@@ -994,8 +992,8 @@ impl M6502Opcodes for CPU {
     fn PLA(&mut self, bus: &mut BUS) -> u8 {
         self.sp += 1;
         self.status = bus.read(0x0100 + self.sp as u16, false);
-        self.set_flag(CpuFlags::Z, self.a == 0x00);
-        self.set_flag(CpuFlags::N, self.a & TOP_BIT_THRESH as u8 == 0x00);
+        self.set_flag(CpuFlag::Z, self.a == 0x00);
+        self.set_flag(CpuFlag::N, self.a & TOP_BIT_THRESH as u8 == 0x00);
         0u8
     }
 
@@ -1003,16 +1001,16 @@ impl M6502Opcodes for CPU {
     fn PLP(&mut self, bus: &mut BUS) -> u8 {
         self.sp += 1;
         self.status = bus.read(0x0100 + self.sp as u16, false);
-        self.set_flag(CpuFlags::U, true);
+        self.set_flag(CpuFlag::U, true);
         0u8
     }
 
     #[inline]
     fn ROL(&mut self, bus: &mut BUS) -> u8 {
-        self.temp = (self.fetch(bus) << 1 | self.get_flag(CpuFlags::C)).into();
-        self.set_flag(CpuFlags::C, self.temp & HIGH_BYTE != 0x0000);
-        self.set_flag(CpuFlags::Z, self.temp & LOW_BYTE == 0x0000);
-        self.set_flag(CpuFlags::N, self.temp & TOP_BIT_THRESH != 0x0000);
+        self.temp = (self.fetch(bus) << 1 | self.get_flag(CpuFlag::C)).into();
+        self.set_flag(CpuFlag::C, self.temp & HIGH_BYTE != 0x0000);
+        self.set_flag(CpuFlag::Z, self.temp & LOW_BYTE == 0x0000);
+        self.set_flag(CpuFlag::N, self.temp & TOP_BIT_THRESH != 0x0000);
         if LOOKUP_TABLE[self.opcode as usize].addr_mode as usize
             == CPU::IMP as usize
         {
@@ -1026,10 +1024,10 @@ impl M6502Opcodes for CPU {
     #[inline]
     fn ROR(&mut self, bus: &mut BUS) -> u8 {
         self.temp =
-            (self.get_flag(CpuFlags::C) << 7 | self.fetch(bus) >> 1).into();
-        self.set_flag(CpuFlags::C, self.fetched & 0x01 == 0x00);
-        self.set_flag(CpuFlags::Z, self.temp & LOW_BYTE == 0x00);
-        self.set_flag(CpuFlags::N, self.temp & TOP_BIT_THRESH != 0x00);
+            (self.get_flag(CpuFlag::C) << 7 | self.fetch(bus) >> 1).into();
+        self.set_flag(CpuFlag::C, self.fetched & 0x01 == 0x00);
+        self.set_flag(CpuFlag::Z, self.temp & LOW_BYTE == 0x00);
+        self.set_flag(CpuFlag::N, self.temp & TOP_BIT_THRESH != 0x00);
         if LOOKUP_TABLE[self.opcode as usize].addr_mode as usize
             == CPU::IMP as usize
         {
@@ -1044,8 +1042,8 @@ impl M6502Opcodes for CPU {
     fn RTI(&mut self, bus: &mut BUS) -> u8 {
         self.sp += 1;
         self.status = bus.read(0x0100 + self.sp as u16, false);
-        self.status &= !(CpuFlags::B as u8);
-        self.status &= !(CpuFlags::U as u8);
+        self.status &= !(CpuFlag::B as u8);
+        self.status &= !(CpuFlag::U as u8);
 
         self.sp += 1;
         self.pc = bus.read(0x0100 + self.sp as u16, false).into();
@@ -1068,34 +1066,34 @@ impl M6502Opcodes for CPU {
     #[inline]
     fn SBC(&mut self, bus: &mut BUS) -> u8 {
         let value: u16 = self.fetch(bus) as u16 ^ LOW_BYTE;
-        self.temp = self.a as u16 + value + self.get_flag(CpuFlags::C) as u16;
-        self.set_flag(CpuFlags::C, self.temp & HIGH_BYTE != 0x0000);
-        self.set_flag(CpuFlags::Z, self.temp & HIGH_BYTE == 0x0000);
+        self.temp = self.a as u16 + value + self.get_flag(CpuFlag::C) as u16;
+        self.set_flag(CpuFlag::C, self.temp & HIGH_BYTE != 0x0000);
+        self.set_flag(CpuFlag::Z, self.temp & HIGH_BYTE == 0x0000);
         self.set_flag(
-            CpuFlags::V,
+            CpuFlag::V,
             (self.temp ^ self.a as u16) & (self.temp ^ value) & TOP_BIT_THRESH
                 != 0x0000,
         );
-        self.set_flag(CpuFlags::N, self.temp & TOP_BIT_THRESH == 0x0000);
+        self.set_flag(CpuFlag::N, self.temp & TOP_BIT_THRESH == 0x0000);
         self.a = self.temp as u8 & LOW_BYTE as u8;
         1u8
     }
 
     #[inline]
     fn SEC(&mut self, _: &mut BUS) -> u8 {
-        self.set_flag(CpuFlags::C, true);
+        self.set_flag(CpuFlag::C, true);
         0u8
     }
 
     #[inline]
     fn SED(&mut self, _: &mut BUS) -> u8 {
-        self.set_flag(CpuFlags::D, true);
+        self.set_flag(CpuFlag::D, true);
         0u8
     }
 
     #[inline]
     fn SEI(&mut self, _: &mut BUS) -> u8 {
-        self.set_flag(CpuFlags::I, true);
+        self.set_flag(CpuFlag::I, true);
         0u8
     }
 
@@ -1120,32 +1118,32 @@ impl M6502Opcodes for CPU {
     #[inline]
     fn TAX(&mut self, _: &mut BUS) -> u8 {
         self.x = self.a;
-        self.set_flag(CpuFlags::Z, self.x == 0x00);
-        self.set_flag(CpuFlags::N, self.x & TOP_BIT_THRESH as u8 != 0x0000);
+        self.set_flag(CpuFlag::Z, self.x == 0x00);
+        self.set_flag(CpuFlag::N, self.x & TOP_BIT_THRESH as u8 != 0x0000);
         0u8
     }
 
     #[inline]
     fn TAY(&mut self, _: &mut BUS) -> u8 {
         self.y = self.a;
-        self.set_flag(CpuFlags::Z, self.y == 0x00);
-        self.set_flag(CpuFlags::N, self.y & TOP_BIT_THRESH as u8 != 0x0000);
+        self.set_flag(CpuFlag::Z, self.y == 0x00);
+        self.set_flag(CpuFlag::N, self.y & TOP_BIT_THRESH as u8 != 0x0000);
         0u8
     }
 
     #[inline]
     fn TSX(&mut self, _: &mut BUS) -> u8 {
         self.x = self.sp;
-        self.set_flag(CpuFlags::Z, self.x == 0x00);
-        self.set_flag(CpuFlags::N, self.x & TOP_BIT_THRESH as u8 != 0x0000);
+        self.set_flag(CpuFlag::Z, self.x == 0x00);
+        self.set_flag(CpuFlag::N, self.x & TOP_BIT_THRESH as u8 != 0x0000);
         0u8
     }
 
     #[inline]
     fn TXA(&mut self, _: &mut BUS) -> u8 {
         self.a = self.x;
-        self.set_flag(CpuFlags::Z, self.a == 0x00);
-        self.set_flag(CpuFlags::N, self.a & TOP_BIT_THRESH as u8 != 0x0000);
+        self.set_flag(CpuFlag::Z, self.a == 0x00);
+        self.set_flag(CpuFlag::N, self.a & TOP_BIT_THRESH as u8 != 0x0000);
         0u8
     }
 
@@ -1158,8 +1156,8 @@ impl M6502Opcodes for CPU {
     #[inline]
     fn TYA(&mut self, _: &mut BUS) -> u8 {
         self.a = self.y;
-        self.set_flag(CpuFlags::Z, self.a == 0x00);
-        self.set_flag(CpuFlags::N, self.a & TOP_BIT_THRESH as u8 != 0x0000);
+        self.set_flag(CpuFlag::Z, self.a == 0x00);
+        self.set_flag(CpuFlag::N, self.a & TOP_BIT_THRESH as u8 != 0x0000);
         0u8
     }
 

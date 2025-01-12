@@ -1,4 +1,4 @@
-use crate::dh_cpu::cpu::CPU;
+use crate::dh_cpu::CPU;
 
 impl Default for CPU {
     fn default() -> Self {

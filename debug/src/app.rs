@@ -30,38 +30,43 @@ impl Update<DebuggerState, DebuggerMsg> for DebuggerApp {
             DebuggerMsg::Start => debug!("Session Started"),
             DebuggerMsg::End => debug!("Session Ended"),
             DebuggerMsg::KeyPressed(key) => match key {
-                iced::keyboard::Key::Character(c) => {
-                    if c == "q" {
+                iced::keyboard::Key::Character(key) => {
+                    if key == "q" {
                         info!("exiting...");
                         std::process::exit(0);
                     }
 
-                    if c == "r" {
+                    if key == "r" {
                         info!("reseting cpu state...");
                         state.cpu.reset(&state.bus);
+                        state.disasm_idx = 0_usize;
                     }
 
-                    if c == "i" {
+                    if key == "i" {
                         info!("calling irq...");
                         state.cpu.irq(&mut state.bus);
                     }
 
-                    if c == "n" {
+                    if key == "n" {
                         info!("calling nmi...");
                         state.cpu.nmi(&mut state.bus);
                     }
                 }
-                iced::keyboard::Key::Named(n) => {
-                    if n == iced::keyboard::key::Named::Escape {
+                iced::keyboard::Key::Named(key) => {
+                    if key == iced::keyboard::key::Named::Escape {
                         info!("exiting...");
                         std::process::exit(0);
                     }
 
-                    if n == iced::keyboard::key::Named::Space {
+                    if key == iced::keyboard::key::Named::Space {
+                        // clock the cpu until it is done once hit
+                        log::info!("{}", state.disasm[state.disasm_idx].1);
                         state.cpu.clock(&mut state.bus);
                         while !state.cpu.complete() {
                             state.cpu.clock(&mut state.bus);
                         }
+                        state.disasm_idx += 1_usize;
+                        // log::info!("{}", state.disasm[state.disasm_idx].1);
                     }
                 }
                 _ => unimplemented!(),

@@ -1,6 +1,5 @@
 use components::{
-    dh_bus::bus::BUS, dh_cpu::cpu::CPU, RESET_VECTOR_HIGH_BYTE,
-    RESET_VECTOR_LOW_BYTE,
+    dh_bus::BUS, dh_cpu::CPU, RESET_VECTOR_HIGH_BYTE, RESET_VECTOR_LOW_BYTE,
 };
 use iced::keyboard::Key;
 
@@ -35,19 +34,23 @@ pub struct DebuggerState {
     pub bus: BUS,
     pub cpu: CPU,
     pub context: UiContext,
+    pub disasm: Vec<(u16, String)>,
+    pub disasm_idx: usize,
 }
 
 impl Default for DebuggerState {
     fn default() -> Self {
-        let mut this = Self {
-            cpu: CPU::new(),
-            bus: BUS::new(),
-            context: UiContext::ShowRAM,
-        };
-        CPU::reset(&mut this.cpu, &this.bus);
-        mini_program(&mut this);
+        let mut cpu = CPU::new();
+        let mut bus = BUS::new();
+        let disasm = mini_program(&mut cpu, &mut bus);
 
-        this
+        Self {
+            cpu,
+            bus,
+            context: UiContext::ShowRAM,
+            disasm,
+            disasm_idx: 0usize,
+        }
     }
 }
 
@@ -81,7 +84,7 @@ fn example_1() -> Vec<Vec<u16>> {
     ]
 }
 
-fn mini_program(DebuggerState { cpu, bus, .. }: &mut DebuggerState) {
+fn mini_program(cpu: &mut CPU, bus: &mut BUS) -> Vec<(u16, String)> {
     const START: u16 = 0x8000;
     const STOP: u16 = 0x800B;
 
@@ -95,11 +98,11 @@ fn mini_program(DebuggerState { cpu, bus, .. }: &mut DebuggerState) {
     // NOTE this will add count of WRITE for all program instruction addresses.
     bus.load_instruction_mem(ttape.clone());
 
+    cpu.reset(&bus);
+
     // NOTE this will add count of READ for all locations between START and STOP
     let mut disasm: Vec<_> =
         CPU::disassemble(bus, START, STOP).into_iter().collect();
     disasm.sort();
-
-    dbg!(disasm);
-    cpu.reset(&bus);
+    disasm
 }

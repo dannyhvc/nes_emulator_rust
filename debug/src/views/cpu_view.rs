@@ -1,7 +1,7 @@
 use super::menu_drop_down;
 use crate::styles;
 use crate::types::{DebuggerMsg, DebuggerState};
-use components::types::CpuFlags;
+use components::types::CpuFlag;
 use iced::widget::column as col;
 use iced::*;
 use widget::{container, text, Column, Container, Row};
@@ -67,7 +67,7 @@ fn status_register_component<'a>(
 
     let flag_vals = (0..u8::BITS).map(|i| {
         let flag_text_color: iced::Color =
-            match state.cpu.get_flag(CpuFlags::try_from(1u8 << i).unwrap()) {
+            match state.cpu.get_flag(CpuFlag::try_from(1u8 << i).unwrap()) {
                 1 => GREEN,
                 _ => RED, // will always be 0
             };

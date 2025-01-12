@@ -1,7 +1,7 @@
-use crate::M6502AddrModes;
-use crate::{dh_bus::bus::BUS, dh_cpu::cpu::CPU, HIGH_BYTE, LOW_BYTE};
+use crate::AddressingMode;
+use crate::{dh_bus::BUS, dh_cpu::CPU, HIGH_BYTE, LOW_BYTE};
 
-impl M6502AddrModes for CPU {
+impl AddressingMode for CPU {
     /// Implied Addressing (IMP)
     ///
     /// The `IMP` addressing mode is used for instructions that have an implied operand.
