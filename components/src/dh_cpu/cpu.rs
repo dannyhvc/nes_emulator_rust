@@ -269,17 +269,11 @@ impl CPU {
             {
                 // TODO: figure out a way to show the opcode and addrmode and data
                 //
-                info!("{}", self);
-                debug!("{:?}", instruction);
+                warn!("{}", self.cycles);
+                warn!("{}", self.pc);
+                warn!("found: {:?}", instruction);
             }
         }
-
-        #[cfg(feature = "debug")]
-        {
-            info!("{}", self.cycles);
-            // info!("{}", self.pc);
-        }
-
         // Increment the internal clock count
         self._clock_count += 1;
         // Decrement the remaining cycles

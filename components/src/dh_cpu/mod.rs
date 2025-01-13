@@ -255,6 +255,19 @@ impl CPU {
             // Set the initial cycle count for the instruction
             self.cycles = instruction.cycles;
 
+            #[cfg(feature = "debug")]
+            {
+                log::info!(
+                    "{:?} {:?}",
+                    instruction.mneumonic.op_code,
+                    instruction.mneumonic.am_name
+                );
+                log::info!(
+                    "0x{:X} 0x{:X}",
+                    instruction.mneumonic.op_code as usize,
+                    instruction.mneumonic.am_name as usize
+                );
+            }
             // Execute the addressing mode operation and add any additional cycles
             let added_cycle1: u8 = (instruction.op_code)(self, bus);
             // Execute the opcode operation and add any additional cycles

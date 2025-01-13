@@ -97,7 +97,7 @@ impl Mneumonic {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum AddressingModeMneumonic {
     IMP,
     IMM,
@@ -113,7 +113,7 @@ pub enum AddressingModeMneumonic {
     IZY,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum OpcodeMneumonic {
     ADC,
     AND,
