@@ -60,12 +60,15 @@ impl Update<DebuggerState, DebuggerMsg> for DebuggerApp {
 
                     if key == iced::keyboard::key::Named::Space {
                         // clock the cpu until it is done once hit
-                        log::info!("{}", state.disasm[state.disasm_idx].1);
+                        // log::info!("{}", state.disasm[state.disasm_idx].1);
                         state.cpu.clock(&mut state.bus);
                         while !state.cpu.complete() {
                             state.cpu.clock(&mut state.bus);
                         }
-                        state.disasm_idx += 1_usize;
+                        let x = state.bus.ram();
+                        let x = &x[0x8000..0x800C];
+                        info!("\n\n{x:X?}");
+                        // state.disasm_idx += 1_usize;
                         // log::info!("{}", state.disasm[state.disasm_idx].1);
                     }
                 }

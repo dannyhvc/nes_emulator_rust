@@ -1,10 +1,10 @@
-type OpFn<CPU, BUS> = for<'a, 'b> fn(&'a mut CPU, &'b mut BUS) -> u8;
+type OpFn<cpu_t, bus_t> = for<'a, 'b> fn(&'a mut cpu_t, &'b mut bus_t) -> u8;
 
 ///
-pub fn opcode_adapter<CPU, BUS>(
-    op: &OpFn<CPU, BUS>,
-    cpu: &mut CPU,
-    bus: &mut BUS,
+pub fn opcode_adapter<cpu_t, bus_t>(
+    op: &OpFn<cpu_t, bus_t>,
+    cpu: &mut cpu_t,
+    bus: &mut bus_t,
 ) {
     let ret_val = (*op)(cpu, bus);
 }

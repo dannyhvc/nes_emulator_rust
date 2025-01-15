@@ -54,6 +54,7 @@ impl Default for DebuggerState {
     }
 }
 
+#[deprecated]
 fn example_0() -> Vec<Vec<u16>> {
     vec![
         vec![0x8000, 0xA2, 0x0A],       // A2 0A       LDX #10
@@ -74,6 +75,7 @@ fn example_0() -> Vec<Vec<u16>> {
 }
 
 /// Looping example
+#[deprecated]
 fn example_1() -> Vec<Vec<u16>> {
     vec![
         vec![0x8000, 0xA2, 0x00],       // LDX #$00
@@ -84,25 +86,28 @@ fn example_1() -> Vec<Vec<u16>> {
     ]
 }
 
-fn mini_program(cpu: &mut CPU, bus: &mut BUS) -> Vec<(u16, String)> {
-    const START: u16 = 0x8000;
-    const STOP: u16 = 0x800B;
+// highly coupled specific function designed to immitate a simple incrementor in a loop
+fn program_1(cpu: &mut CPU, bus: &mut BUS, offset: &mut usize) {
+    const PROGRAM_STR: &str = "A2 00 8E 00 00 E8 8E 00 00 4C 05 80";
+    log::info!("{PROGRAM_STR}");
+    _ = bus.load_program(PROGRAM_STR, offset);
 
-    let ttape = example_1();
-
-    // Set reset vector (where the program will start exectuing from)
     bus.write(RESET_VECTOR_LOW_BYTE, 0x00);
     bus.write(RESET_VECTOR_HIGH_BYTE, 0x80);
-
-    // is there a better way to do this?
-    // NOTE this will add count of WRITE for all program instruction addresses.
-    bus.load_instruction_mem(ttape.clone());
-
     cpu.reset(&bus);
+}
+
+fn mini_program(cpu: &mut CPU, bus: &mut BUS) -> Vec<(u16, String)> {
+    const START_DEBUG: u16 = 0x8000;
+    const STOP_DEBUG: u16 = 0x800B;
+
+    let mut offset: usize = START_DEBUG.into();
+    program_1(cpu, bus, &mut offset);
 
     // NOTE this will add count of READ for all locations between START and STOP
-    let mut disasm: Vec<_> =
-        CPU::disassemble(bus, START, STOP).into_iter().collect();
+    let mut disasm: Vec<_> = CPU::disassemble(bus, START_DEBUG, STOP_DEBUG)
+        .into_iter()
+        .collect();
     disasm.sort();
     disasm
 }

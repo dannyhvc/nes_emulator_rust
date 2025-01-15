@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use log::{debug, info};
+use log::info;
 
 use crate::types::CpuInstruction;
 
@@ -255,23 +255,10 @@ impl CPU {
             // Set the initial cycle count for the instruction
             self.cycles = instruction.cycles;
 
-            #[cfg(feature = "debug")]
-            {
-                log::info!(
-                    "{:?} {:?}",
-                    instruction.mneumonic.op_code,
-                    instruction.mneumonic.am_name
-                );
-                log::info!(
-                    "0x{:X} 0x{:X}",
-                    instruction.mneumonic.op_code as usize,
-                    instruction.mneumonic.am_name as usize
-                );
-            }
             // Execute the addressing mode operation and add any additional cycles
-            let added_cycle1: u8 = (instruction.op_code)(self, bus);
-            // Execute the opcode operation and add any additional cycles
             let added_cycle2: u8 = (instruction.addr_mode)(self, bus);
+            // Execute the opcode operation and add any additional cycles
+            let added_cycle1: u8 = (instruction.op_code)(self, bus);
 
             // Update the cycle count with any additional cycles from the operations
             self.cycles += added_cycle1 & added_cycle2;
@@ -281,16 +268,21 @@ impl CPU {
             #[cfg(feature = "debug")]
             {
                 // TODO: figure out a way to show the opcode and addrmode and data
-                //
-                info!("{}", self);
-                debug!("{:?}", instruction);
+                info!("{:?} {:?}", self.opcode, instruction.addr_mode);
+                info!(
+                    "{:?} {:?}",
+                    instruction.mneumonic.op_code,
+                    instruction.mneumonic.am_name
+                );
+                info!(
+                    "0x{:X} 0x{:X}",
+                    instruction.mneumonic.op_code as usize,
+                    instruction.mneumonic.am_name as usize
+                );
+                info!("cycles: {}", self.cycles);
+                info!("PC: 0x{:X}", self.pc);
+                info!("***found***:\n {:?}", instruction);
             }
-        }
-
-        #[cfg(feature = "debug")]
-        {
-            info!("{}", self.cycles);
-            // info!("{}", self.pc);
         }
 
         // Increment the internal clock count
@@ -565,11 +557,8 @@ impl CPU {
     #[inline]
     pub fn fetch(&mut self, bus: &BUS) -> u8 {
         let instruction: &CpuInstruction = &LOOKUP_TABLE[self.opcode as usize];
-        match instruction.mneumonic.am_name == AddressingModeMneumonic::IMP {
-            true => (),
-            false => {
-                self.fetched = bus.read(self.abs, false);
-            }
+        if instruction.mneumonic.am_name != AddressingModeMneumonic::IMP {
+            self.fetched = bus.read(self.abs, false);
         }
         self.fetched
     }

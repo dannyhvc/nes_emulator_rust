@@ -1,11 +1,14 @@
 #[cfg(feature = "debug")]
 pub mod ram_stats;
-
+use log::info;
 #[cfg(feature = "debug")]
 use ram_stats::RamAccessType;
+#[cfg(feature = "debug")]
+use ram_stats::ADDRESS_HIT_COUNT;
 
 use crate::dh_cpu::CPU;
 use crate::{END_OF_RAM, KB, START_OF_RAM};
+use eyre::Result as ErrorOr;
 
 #[derive(Debug, Clone, Hash)]
 pub struct BUS {
@@ -29,6 +32,7 @@ impl BUS {
     }
 
     #[cfg(feature = "debug")]
+    #[deprecated]
     pub fn load_instruction_mem(&mut self, data: Vec<Vec<u16>>) {
         // represents the index at which the entire instruction (opcode + operands)
         // will be stored at relatively to the instruction vec
@@ -60,6 +64,31 @@ impl BUS {
         });
     }
 
+    /// load_program
+    /// -----
+    ///
+    /// Loads program into memory so that it can be executed
+    #[cfg(feature = "debug")]
+    pub fn load_program(
+        &mut self,
+        data: &str,
+        offset: &mut usize,
+    ) -> ErrorOr<()> {
+        const SPACE: char = ' ';
+        const BASE_HEX: u32 = 16;
+
+        // splitting the bytes by spaces
+        let split_data = data.split(SPACE);
+        split_data.into_iter().for_each(|x| {
+            // Turning str to hex in
+            let byte = u16::from_str_radix(x, BASE_HEX).unwrap();
+            self.ram[*offset] = byte as u8;
+            *offset += 1;
+        });
+
+        Ok(())
+    }
+
     /// Creates a new [`Bus`]. With 2Kb of MOS 6502 memory
     pub fn new() -> Self {
         Self {
@@ -76,17 +105,22 @@ impl BUS {
     #[inline]
     pub fn read(&self, addr: u16, _b_read_only: bool) -> u8 {
         #[cfg(feature = "debug")]
-        unsafe {
-            crate::dh_bus::ram_stats::ADDRESS_HIT_COUNT
-                .entry(addr)
-                .or_insert_with(Vec::new)
-                .push(RamAccessType::Read);
+        {
+            unsafe {
+                ADDRESS_HIT_COUNT
+                    .entry(addr)
+                    .or_insert_with(Vec::new)
+                    .push(RamAccessType::Read);
+            }
         }
 
         if addr >= START_OF_RAM && addr <= END_OF_RAM {
+            info!(
+                "|RAM Accessed| 0x{addr:X}-{addr} = 0x{:X}-{}",
+                self.ram[addr as usize], self.ram[addr as usize]
+            );
             return self.ram[addr as usize];
         }
-        println!("Memory accessed out of bound: {:?}", addr);
         0x00
     }
 
@@ -103,11 +137,13 @@ impl BUS {
         );
 
         #[cfg(feature = "debug")]
-        unsafe {
-            ram_stats::ADDRESS_HIT_COUNT
-                .entry(addr)
-                .or_insert_with(Vec::new)
-                .push(RamAccessType::Write);
+        {
+            unsafe {
+                ADDRESS_HIT_COUNT
+                    .entry(addr)
+                    .or_insert_with(Vec::new)
+                    .push(RamAccessType::Write);
+            }
         }
         self.ram[addr as usize] = data;
     }
