@@ -1,3 +1,5 @@
+#![allow(non_snake_case)]
+
 use crate::AddressingMode;
 use crate::{dh_bus::BUS, dh_cpu::CPU, HIGH_BYTE, LOW_BYTE};
 

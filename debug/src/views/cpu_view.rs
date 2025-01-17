@@ -61,7 +61,6 @@ fn status_register_component<'a>(
     const NUMBER_OF_FLAGS: usize = 8;
     const FLAG_SYMBOL: [&str; NUMBER_OF_FLAGS] =
         ["C", "Z", "I", "D", "B", "U", "V", "N"];
-
     const GREEN: iced::Color = iced::Color::from_rgb(0., 1., 0.);
     const RED: iced::Color = iced::Color::from_rgb(1., 0., 0.);
 

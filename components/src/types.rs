@@ -1,3 +1,4 @@
+#![allow(non_snake_case)]
 // use self::instruction_mneumonic::InstructionMneumonic;
 use super::{dh_bus::BUS, dh_cpu::CPU};
 
@@ -13,14 +14,20 @@ use super::{dh_bus::BUS, dh_cpu::CPU};
 /// ```
 #[derive(Debug, PartialEq, Eq)]
 pub enum CpuFlag {
-    C = 1 << 0, // Carry Bit
-    Z = 1 << 1, // Zero
-    I = 1 << 2, // Disable Interrupts
-    D = 1 << 3, // Decimal Mode (unused in this implementation)
-    B = 1 << 4, // Break
-    U = 1 << 5, // UNUSED!!!!!!!!!!!!!
-    V = 1 << 6, // Overflow
-    N = 1 << 7, // Negative
+    C = 0x01, // 1 << 0, // Carry Bit
+    Z = 0x02, // 1 << 1, // Zero
+    I = 0x04, // 1 << 2, // Disable Interrupts
+    D = 0x08, // 1 << 3, // Decimal Mode (unused in this implementation)
+    B = 0x10, // 1 << 4, // Break
+    U = 0x20, // 1 << 5, // UNUSED!!!!!!!!!!!!!
+    V = 0x40, // 1 << 6, // Overflow
+    N = 0x80, // 1 << 7, // Negative
+}
+
+impl Into<u8> for CpuFlag {
+    fn into(self) -> u8 {
+        self as u8
+    }
 }
 
 impl TryFrom<u8> for CpuFlag {
@@ -28,14 +35,14 @@ impl TryFrom<u8> for CpuFlag {
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         match value {
-            x if x == Self::C as u8 => Ok(Self::C),
-            x if x == Self::Z as u8 => Ok(Self::Z),
-            x if x == Self::I as u8 => Ok(Self::I),
-            x if x == Self::D as u8 => Ok(Self::D),
-            x if x == Self::B as u8 => Ok(Self::B),
-            x if x == Self::U as u8 => Ok(Self::U),
-            x if x == Self::V as u8 => Ok(Self::V),
-            x if x == Self::N as u8 => Ok(Self::N),
+            0x01 => Ok(Self::C),
+            0x02 => Ok(Self::Z),
+            0x04 => Ok(Self::I),
+            0x08 => Ok(Self::D),
+            0x10 => Ok(Self::B),
+            0x20 => Ok(Self::U),
+            0x40 => Ok(Self::V),
+            0x80 => Ok(Self::N),
             _ => Err(format!("Cannot convert value into a CpuFlag")),
         }
     }
@@ -248,8 +255,3 @@ pub trait Opcode {
     fn TYA(&mut self, bus: &mut BUS) -> u8;
     fn XXX(&mut self, bus: &mut BUS) -> u8;
 }
-// pub mod addr_mnuemonic;
-// pub mod addr_modes;
-// pub mod instruction_mneumonic;
-// pub mod opcode_mneumonics;
-// pub mod opcodes;

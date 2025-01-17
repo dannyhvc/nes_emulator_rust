@@ -1,3 +1,5 @@
+#![allow(non_snake_case)]
+
 use crate::dh_cpu::CPU;
 use crate::types::{CpuFlag, Opcode};
 use crate::AddressingMode;
@@ -220,7 +222,7 @@ impl Opcode for CPU {
 
     /// Branch on Carry Clear
     ///
-    /// This function implements the "BCC" instruction, which checks if the carry flag is clear. If the carry flag is clear, then
+    /// This function implements the [`BCC`] instruction, which checks if the carry flag is clear. If the carry flag is clear, then
     /// add the relative displacement to the program counter to cause a branch to a new location. The 6502 supports relative
     /// addressing mode, so the value read from memory is the two's complement of a signed byte that represents the relative
     /// displacement to be added to the program counter. If the carry flag is set, then the program counter is incremented
