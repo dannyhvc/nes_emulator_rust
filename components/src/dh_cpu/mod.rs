@@ -54,21 +54,34 @@ use crate::{LOOKUP_TABLE, LOW_BIT_HIGH_BYTE, LOW_BYTE};
 pub struct CPU {
     // cpu Core registers, exposed as public here for ease of access from external
     // examinors. This is all the 6502 has.
-    pub a: u8,      // Accumulator Register
-    pub x: u8,      // X Register
-    pub y: u8,      // Y Register
-    pub sp: u8,     // Stack Pointer (points to location on cpu.bus)
-    pub pc: u16,    // Program Counter
-    pub status: u8, // Status Register
+    /// Accumulator Register
+    pub a: u8,      
+    /// X Register
+    pub x: u8,      
+    /// Y Register
+    pub y: u8,      
+    /// Stack Pointer (points to location on cpu<->bus)
+    pub sp: u8,     
+    /// Program Counter
+    pub pc: u16,    
+    /// Status Register
+    pub status: u8, 
 
-    // Assisstive variables to facilitate emulation
-    pub fetched: u8, // Represents the working input value to the ALU
-    pub temp: u16,   // A convenience variable used everywhere
-    pub abs: u16,    // All used memory addresses end up in here
-    pub rel: u16,    // Represents absolute address following a branch
-    pub opcode: u8,  // Is the instruction byte
-    pub cycles: u8,  // Counts how many cycles the instruction has remaining
-    pub _clock_count: u32, // A global accumulation of the number of clocks
+    // =============== Assisstive variables to facilitate emulation ===============
+    /// Represents the working input value to the ALU
+    pub fetched: u8, 
+    /// A convenience variable used everywhere
+    pub temp: u16,   
+    /// All used memory addresses end up in here
+    pub abs: u16,    
+    /// Represents absolute address following a branch
+    pub rel: u16,    
+    /// Is the instruction byte
+    pub opcode: u8,  
+    /// Counts how many cycles the instruction has remaining
+    pub cycles: u8,  
+    /// A global accumulation of the number of clocks
+    pub _clock_count: u32, 
 }
 
 impl CPU {
@@ -119,7 +132,7 @@ impl CPU {
             LOW_BIT_HIGH_BYTE + self.sp as u16,
             ((self.pc as u32 >> 8) & LOW_BYTE as u32) as u8,
         );
-        self.sp.checked_sub(1).map(|v| self.sp = v).unwrap();
+        self.sp = self.sp.wrapping_sub(1);
 
         // Set or clear CPU flags
         self.set_flag(CpuFlag::B, false);
@@ -129,7 +142,7 @@ impl CPU {
         // Push the status register onto the stack
         let addr = LOW_BIT_HIGH_BYTE.checked_add(self.sp.into()).unwrap();
         bus.write(addr, self.status);
-        self.sp.checked_sub(1).map(|v| self.sp = v).unwrap();
+        self.sp = self.sp.wrapping_sub(1);
 
         // Set the absolute address to the Non-Maskable Interrupt Vector
         self.abs = crate::NON_MASKABLE_INTERUPT_VECTOR;
@@ -247,7 +260,7 @@ impl CPU {
             // Set the U flag (unused flag, often set during operations)
             self.set_flag(CpuFlag::U, true);
             // Increment the program counter
-            self.pc += 1;
+            self.pc = self.pc.wrapping_add(1);
 
             // Lookup the instruction using the opcode from the lookup table
             let instruction: &CpuInstruction =
@@ -288,7 +301,7 @@ impl CPU {
         // Increment the internal clock count
         self._clock_count += 1;
         // Decrement the remaining cycles
-        self.cycles -= 1;
+        self.cycles = self.cycles.wrapping_sub(1);
     }
 
     pub const fn clock_count(&self) -> u32 {
@@ -400,7 +413,7 @@ impl CPU {
                 AddressingModeMneumonic::ZPX => {
                     low = bus.read(address as u16, true);
                     address += 1;
-                    high = 0x00;
+                    // high = 0x00;
                     let string_rep: String = format!("${:x}, X {{zpx}}", low);
                     instruction_address.push_str(&string_rep);
                 }
@@ -409,7 +422,7 @@ impl CPU {
                 AddressingModeMneumonic::ZPY => {
                     low = bus.read(address as u16, true);
                     address += 1;
-                    high = 0x00;
+                    // high = 0x00;
                     let string_rep: String = format!("${:x}, Y {{zpy}}", low);
                     instruction_address.push_str(&string_rep);
                 }
@@ -419,7 +432,7 @@ impl CPU {
                 AddressingModeMneumonic::IZX => {
                     low = bus.read(address as u16, true);
                     address += 1;
-                    high = 0x00;
+                    // high = 0x00;
                     let string_rep: String = format!("(${:x}, X) {{izx}}", low);
                     instruction_address.push_str(&string_rep);
                 }
@@ -429,7 +442,7 @@ impl CPU {
                 AddressingModeMneumonic::IZY => {
                     low = bus.read(address as u16, true);
                     address += 1;
-                    high = 0x00;
+                    // high = 0x00;
                     let string_rep: String = format!("(${:x}), Y {{izy}}", low);
                     instruction_address.push_str(&string_rep);
                 }
@@ -523,10 +536,13 @@ impl CPU {
     ///
     /// # Description
     ///
-    /// The `fetch` function retrieves the next byte of data from the specified address in memory, as determined
-    /// by the current instruction being executed. If the current instruction is using an implied addressing mode,
-    /// no memory access is performed and the fetched value remains unchanged. Otherwise, the `addr_abs` field of
-    /// the CPU is used to retrieve the value from memory, and the result is stored in the `fetched` field of the CPU.
+    /// The `fetch` function retrieves the next byte of data from the specified
+    /// address in memory, as determined by the current instruction being
+    /// executed. If the current instruction is using an implied addressing
+    /// mode, no memory access is performed and the fetched value remains
+    /// unchanged. Otherwise, the `addr_abs` field of the CPU is used to
+    /// retrieve the value from memory, and the result is stored in the
+    /// `fetched` field of the CPU.
     ///
     /// # Return value
     ///

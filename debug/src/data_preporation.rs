@@ -4,87 +4,77 @@ use super::types::DebuggerState;
 impl HexView for DebuggerState {
     fn terminal_view(&self, words_list: Vec<Vec<&u8>>) -> String {
         use std::io::Write;
+
         let mut fmt_buff = Vec::new();
 
-        words_list.into_iter().for_each(|word| {
-            word.into_iter().for_each(|byte| {
-                let hi_lo: String =
-                    format!("{:X}{:X} ", *byte >> 4, *byte & 0x0F);
-                write!(&mut fmt_buff, "{}", hi_lo)
-                    .expect("Faild to set hex byte data for terminal view");
-            });
-            writeln!(&mut fmt_buff, "")
-                .expect("Failed to set newline for terminal view");
-        });
+        for word in words_list {
+            for byte in word {
+                let hi_lo = format!("{:X}{:X} ", *byte >> 4, *byte & 0x0F);
+                write!(&mut fmt_buff, "{hi_lo}")
+                    .expect("Failed to write hex byte to terminal view");
+            }
+            writeln!(&mut fmt_buff)
+                .expect("Failed to write newline in terminal view");
+        }
 
         String::from_utf8(fmt_buff)
-            .expect("Couldn't format nibbles into HexView")
+            .expect("Couldn't format nibbles into HexView string")
     }
 
     fn editable_view(&self, words_list: Vec<Vec<&u8>>) -> Vec<Vec<String>> {
-        let mut editable: Vec<Vec<String>> = Default::default();
-        words_list.into_iter().for_each(|words| {
-            let editable_words: Vec<_> = words
-                .iter()
-                .map(|byte| format!("{:X}{:X}", *byte >> 4, *byte & 0x0F))
-                .collect();
-
-            editable.push(editable_words);
-        });
-        editable
+        words_list
+            .into_iter()
+            .map(|words| {
+                words
+                    .into_iter()
+                    .map(|byte| format!("{:X}{:X}", *byte >> 4, *byte & 0x0F))
+                    .collect()
+            })
+            .collect()
     }
 }
 
 /// WIDTH = 16
-/// HEIGHT = 240 (16*15)
+/// HEIGHT = 240 (16 * 15)
 /// START = 0
-/// END = 32,768 (16^3 * 8)
-///
+/// END = 0x80_00 (32,768)
 impl RawRamViewDimensions<0x10, 0xF0, 0x0, 0x80_00> for DebuggerState {
     fn first_n_words(&self) -> Vec<Vec<&u8>> {
-        let binding = self.bus.ram();
+        let ram = self.bus.ram();
         assert!(
-            Self::START + Self::HEIGHT < binding.len(),
-            "Size of the binding is smaller than the size of the START stride"
+            Self::START + Self::HEIGHT < ram.len(),
+            "RAM is smaller than required START + HEIGHT"
         );
 
-        // take the first 0xF0 or (16^1 * 0xF) or 240 bytes
-        let words: Vec<&u8> = binding
-            .iter()
+        ram.iter()
             .skip(Self::START)
             .take(Self::HEIGHT)
-            .collect();
-        // chunck them into 16byte rows
-        let words: Vec<Vec<&u8>> = words
+            .collect::<Vec<_>>()
             .chunks(Self::WIDTH)
-            .map(|chunck| chunck.to_vec())
-            .collect();
-        words
+            .map(|chunk| chunk.to_vec())
+            .collect()
     }
 
     fn last_n_words(&self) -> Vec<Vec<&u8>> {
-        let binding = self.bus.ram();
+        let ram = self.bus.ram();
         assert!(
-            Self::START + Self::HEIGHT < binding.len(),
-            "Size of the binding is smaller than the size of the END stride"
+            Self::START + Self::HEIGHT < ram.len(),
+            "RAM is smaller than required END stride"
         );
 
-        // take the first 0xF0 or (16^1 * 0xF) or 240 bytes of the END index
-        let words: Vec<&u8> = binding.iter().rev().take(Self::HEIGHT).collect();
-        // chunck them into 16byte rows
-        let words: Vec<Vec<&u8>> = words
+        ram.iter()
+            .rev()
+            .take(Self::HEIGHT)
+            .collect::<Vec<_>>()
             .chunks(Self::WIDTH)
-            .map(|chunck| chunck.to_vec())
-            .collect();
-        words
+            .map(|chunk| chunk.to_vec())
+            .collect()
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::traits::{HexView, RawRamViewDimensions};
-
-    use super::super::types::*;
+    use super::*;
     use rstest::{fixture, rstest};
 
     #[fixture]
@@ -92,35 +82,29 @@ mod tests {
         DebuggerState::default()
     }
 
-    //#[rstest]
+    // #[rstest]
     fn test_first_n_words(state: DebuggerState) {
         let result = state.first_n_words();
-        // Add assertions to verify the number of chunks, content, etc.
-        assert_eq!(result.len(), DebuggerState::HEIGHT / DebuggerState::WIDTH);
-        assert_eq!(result[0].len(), DebuggerState::WIDTH);
-    }
-
-    //#[rstest]
-    fn test_last_n_words(state: DebuggerState) {
-        let result = state.last_n_words();
-        // Add assertions to verify the behavior.
         assert_eq!(result.len(), DebuggerState::HEIGHT / DebuggerState::WIDTH);
         assert_eq!(result[0].len(), DebuggerState::WIDTH);
     }
 
     // #[rstest]
-    fn test_HexView_terminal_view(state: DebuggerState) {
-        let display = state.terminal_view(state.first_n_words());
-        println!("{display}");
-        let display = state.terminal_view(state.last_n_words());
-        println!("{display}");
+    fn test_last_n_words(state: DebuggerState) {
+        let result = state.last_n_words();
+        assert_eq!(result.len(), DebuggerState::HEIGHT / DebuggerState::WIDTH);
+        assert_eq!(result[0].len(), DebuggerState::WIDTH);
+    }
+
+    // #[rstest]
+    fn test_hexview_terminal_view(state: DebuggerState) {
+        println!("{}", state.terminal_view(state.first_n_words()));
+        println!("{}", state.terminal_view(state.last_n_words()));
     }
 
     #[rstest]
-    fn test_HexView_editable_view(state: DebuggerState) {
-        let display = state.editable_view(state.first_n_words());
-        println!("{display:?}");
-        let display = state.editable_view(state.last_n_words());
-        println!("{display:?}");
+    fn test_hexview_editable_view(state: DebuggerState) {
+        println!("{:?}", state.editable_view(state.first_n_words()));
+        println!("{:?}", state.editable_view(state.last_n_words()));
     }
 }

@@ -4,20 +4,20 @@ pub mod styles;
 pub mod traits;
 pub mod types;
 pub mod views;
+pub mod _experiment; // not useful for end product im just testing stuff
+pub mod util;
+pub mod widgets;
 
-use app::*;
 use eyre::{Context, Result as ErrorOr};
-use iced::Settings;
-use types::DebuggerApp;
 
 pub fn run() -> ErrorOr<()> {
-    iced::application(DebuggerApp, DebuggerApp, DebuggerApp)
-        .settings(Settings {
+    iced::application(app::title, app::update, app::view)
+        .settings(iced::Settings {
             id: Some("main".into()),
-            ..Settings::default()
+            ..iced::Settings::default()
         })
-        .theme(|_| iced::Theme::Nord)
-        .subscription(subscription)
+        .theme(|_| iced::Theme::Dark)
+        .subscription(app::subscription)
         .exit_on_close_request(true)
         .run()
         .context("iced app encountered a critical failure")

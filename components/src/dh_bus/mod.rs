@@ -12,7 +12,7 @@ use eyre::Result as ErrorOr;
 
 #[derive(Debug, Clone, Hash)]
 pub struct BUS {
-    ram: [u8; KB(64)],      // 2Kb of ram
+    pub ram: [u8; KB(64)],      // 2Kb of ram
     sys_clock_counter: u32, // motherboards clock for busses
 }
 

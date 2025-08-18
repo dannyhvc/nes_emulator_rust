@@ -18,6 +18,7 @@ pub enum DebuggerMsg {
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub enum CpuActions {
     Reset,
+    Step,
     Clock,
 }
 

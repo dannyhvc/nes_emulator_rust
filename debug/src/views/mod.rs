@@ -18,24 +18,44 @@ use iced_aw::{
 
 use super::types::{DebuggerMsg, UiContext};
 
+fn ram_button<'a>() -> Button<'a, DebuggerMsg> {
+    Button::new("RAM")
+        .on_press(DebuggerMsg::RefreshContext(UiContext::ShowRAM))
+        .width(Length::Fill)
+}
+
+fn cpu_button<'a>() -> Button<'a, DebuggerMsg> {
+    Button::new("CPU")
+        .on_press(DebuggerMsg::RefreshContext(UiContext::ShowCPU))
+        .width(Length::Fill)
+}
+
+fn ppu_button<'a>() -> Button<'a, DebuggerMsg> {
+    Button::new("PPU")
+        .on_press(DebuggerMsg::RefreshContext(UiContext::ShowPPU))
+        .width(Length::Fill)
+}
+
+fn apu_button<'a>() -> Button<'a, DebuggerMsg> {
+    Button::new("APU")
+        .on_press(DebuggerMsg::RefreshContext(UiContext::ShowAPU))
+        .width(Length::Fill)
+}
+
+/// Creates the "View" dropdown menu for the debugger UI
+
+#[rustfmt::skip]
 fn menu_drop_down<'a>() -> Element<'a, DebuggerMsg> {
     menu_bar!((
         Button::new("View"),
-        Menu::new(menu_items!((Button::new("RAM")
-            .on_press(DebuggerMsg::RefreshContext(UiContext::ShowRAM))
-            .width(Length::Fill))(
-            Button::new("CPU")
-                .on_press(DebuggerMsg::RefreshContext(UiContext::ShowCPU))
-                .width(Length::Fill)
-        )(
-            Button::new("PPU")
-                .on_press(DebuggerMsg::RefreshContext(UiContext::ShowPPU))
-                .width(Length::Fill)
-        )(
-            Button::new("APU")
-                .on_press(DebuggerMsg::RefreshContext(UiContext::ShowAPU))
-                .width(Length::Fill)
-        )))
+        Menu::new(
+            menu_items!(
+                (ram_button())
+                (cpu_button())
+                (ppu_button())
+                (apu_button())
+            )
+        )
         .width(240.0)
     ))
     .draw_path(menu::DrawPath::Backdrop)

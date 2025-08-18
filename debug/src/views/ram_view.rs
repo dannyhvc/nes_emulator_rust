@@ -1,17 +1,18 @@
+use super::super::types::DebuggerState;
 use super::super::types::*;
 use super::menu_drop_down;
 use crate::traits::*;
 use border::Radius;
+use iced::widget::column as col;
 use iced::widget::*;
 use iced::*;
 use iced_aw::{quad, widget::InnerBounds};
 
-use super::super::types::DebuggerState;
-use iced::widget::column as col;
-
-/// # seperator
-///
-/// horizontal grey seperator component
+//
+// ──────────────────────────────────────────────────────────────
+//   Separator (Horizontal Grey Bar)
+// ──────────────────────────────────────────────────────────────
+//
 fn seperator() -> quad::Quad {
     quad::Quad {
         quad_color: Color::from([0.5; 3]).into(),
@@ -25,24 +26,26 @@ fn seperator() -> quad::Quad {
     }
 }
 
-/// # menu_bar_example
-///
-/// The main entry point component for the debugger
+//
+// ──────────────────────────────────────────────────────────────
+//   Main Entry Point for Debugger
+// ──────────────────────────────────────────────────────────────
+//
 pub fn ram_base<'a>(state: &DebuggerState) -> Element<'a, DebuggerMsg> {
-    // closure for making a small seperator line in the menu
     let mb = menu_drop_down();
 
-    let main = col![mb];
-
-    main.push(debug_button_bar())
+    col![mb]
+        .push(debug_button_bar())
         .push(memory_scoller(state))
         .width(Length::Fill)
         .into()
 }
 
-/// # debug_button_bar
-///
-///
+//
+// ──────────────────────────────────────────────────────────────
+//   Debug Button Bar
+// ──────────────────────────────────────────────────────────────
+//
 fn debug_button_bar<'a>() -> impl Into<Element<'a, DebuggerMsg>> {
     let padding = Padding {
         top: 10.0,
@@ -55,92 +58,89 @@ fn debug_button_bar<'a>() -> impl Into<Element<'a, DebuggerMsg>> {
         button("reset")
             .on_press(DebuggerMsg::Start)
             .padding(padding),
-        // button("clock")
-        //     .on_press(DebuggerMsg::Start)
-        //     .padding(padding),
-        // button("show op")
-        //     .on_press(DebuggerMsg::Start)
-        //     .padding(padding),
-        // button("show am")
-        //     .on_press(DebuggerMsg::Start)
-        //     .padding(padding),
-        // button("show flags")
-        //     .on_press(DebuggerMsg::Start)
-        //     .padding(padding),
+        button("clock")
+            .on_press(DebuggerMsg::CpuActions(CpuActions::Clock))
+            .padding(padding),
+        // button("show op").on_press(DebuggerMsg::Start).padding(padding),
+        // button("show am").on_press(DebuggerMsg::Start).padding(padding),
+        // button("show flags").on_press(DebuggerMsg::Start).padding(padding),
     ]
     .spacing(10)]]
     .align_x(Alignment::Center)
     .width(Length::Fill)
 }
 
-/// # memory_scoller
-///
-///
+//
+// ──────────────────────────────────────────────────────────────
+//   Memory Scroller View
+// ──────────────────────────────────────────────────────────────
+//
 fn memory_scoller<'a>(
     state: &DebuggerState,
 ) -> impl Into<Element<'a, DebuggerMsg>> {
-    // the first (0x10 Bytes) x (0xF0 Bytes)
+    // Start memory view
     let start_page_view: Column<'_, DebuggerMsg> = {
         let start_bytes_view = state.editable_view(state.first_n_words());
         let mut mem_addr = DebuggerState::START;
 
         start_bytes_view
-            .into_iter() // Take ownership of the data
+            .into_iter()
             .fold(Column::new(), |column, byte_row| {
                 let row = addr_and_row(byte_row, &mut mem_addr);
                 column.push(row).align_x(Alignment::Center)
             })
     };
 
-    // the first (0x10 Bytes) x (0xF0 Bytes) from END
+    // End memory view
     let end_page_view: Column<'_, DebuggerMsg> = {
         let end_bytes_view = state.editable_view(state.last_n_words());
         let mut mem_addr: usize = DebuggerState::END;
 
         end_bytes_view
-            .into_iter() // Take ownership of the data
+            .into_iter()
             .fold(Column::new(), |column, byte_row| {
                 let row = addr_and_row(byte_row, &mut mem_addr);
                 column.push(row).align_x(Alignment::Center)
             })
     };
 
-    let main: Column<'_, DebuggerMsg> = {
-        const PADDING: u16 = 10u16;
-        const SPACING: u16 = 10u16;
+    // Combined memory display
+    const PADDING: u16 = 10;
+    const SPACING: u16 = 10;
 
-        col![start_page_view, seperator(), end_page_view]
-            .align_x(Alignment::Center)
-            .padding(PADDING)
-            .spacing(SPACING)
-    };
+    let main = col![start_page_view, seperator(), end_page_view]
+        .align_x(Alignment::Center)
+        .padding(PADDING)
+        .spacing(SPACING);
 
     scrollable(main)
 }
 
+//
+// ──────────────────────────────────────────────────────────────
+//   Helper: Address + Row Renderer
+// ──────────────────────────────────────────────────────────────
+//
 fn addr_and_row<'a>(
     byte_row: Vec<String>,
     mem_addr: &mut usize,
 ) -> Row<'a, DebuggerMsg> {
-    // fmt for the address of a row
-    let line_addr: Container<'_, DebuggerMsg> =
+    // Address label
+    let line_addr =
         container(Text::new(format!("${mem_addr:04X}: "))).padding(Padding {
-            top: 1f32,
-            right: 5f32,
-            bottom: 1f32,
-            left: 1f32,
+            top: 1.0,
+            right: 5.0,
+            bottom: 1.0,
+            left: 1.0,
         });
 
-    // Ram data widget map
+    // Convert memory bytes into container elements
     let data: Vec<Element<'_, DebuggerMsg>> = byte_row
         .into_iter()
-        .map(|byte| {
-            // converting since extend method on row only accepts `Element`
-            container(Text::new(byte)).padding(5).into()
-        })
+        .map(|byte| container(Text::new(byte)).padding(5).into())
         .collect();
 
-    // push the new remaining elements after the address s.t. they're to the right of the address
+    // Combine address + data row
     let row = row![line_addr].extend(data);
 
     *mem_addr += 0x10;
