@@ -143,7 +143,7 @@ impl AddressingMode for CPU {
     /// // The `abs` register in the `cpu` will now hold the value 0x42 from the zero page.
     /// ```
     fn ZPX(&mut self, bus: &mut BUS) -> u8 {
-        self.abs = bus.read(self.pc + self.x as u16, false) as u16;
+        self.abs = bus.read(self.pc.wrapping_add(self.x as u16), false) as u16;
         self.pc += 1;
         self.abs &= LOW_BYTE;
         0x00
@@ -183,7 +183,7 @@ impl AddressingMode for CPU {
     /// // The `abs` register in the `cpu` will now hold the value 0x42 from the zero page.
     /// ```
     fn ZPY(&mut self, bus: &mut BUS) -> u8 {
-        self.abs = bus.read(self.pc + self.y as u16, false) as u16;
+        self.abs = bus.read(self.pc.wrapping_add(self.y as u16), false) as u16;
         self.pc += 1;
         self.abs &= LOW_BYTE;
         0x00
@@ -411,11 +411,11 @@ impl AddressingMode for CPU {
         let hi: u32;
         if pointer_lo == LOW_BYTE {
             lo = (bus.read(ptr & LOW_BYTE, false) as u32) << 8;
-            hi = bus.read(ptr + 0, false).into();
+            hi = bus.read(ptr.wrapping_add(0), false).into();
             self.abs = (lo | hi) as u16;
         } else {
-            lo = (bus.read(ptr + 1, false) as u32) << 8;
-            hi = bus.read(ptr + 0, false).into();
+            lo = (bus.read(ptr.wrapping_add(1), false) as u32) << 8;
+            hi = bus.read(ptr.wrapping_add(0), false).into();
             self.abs = (lo | hi) as u16;
         }
         0x00
@@ -466,9 +466,9 @@ impl AddressingMode for CPU {
         let t: u8 = bus.read(self.pc, false);
         self.pc += 1;
 
-        let lo: u32 = bus.read((t + self.x) as u16 & LOW_BYTE, false).into();
+        let lo: u32 = bus.read((t.wrapping_add(self.x)) as u16 & LOW_BYTE, false).into();
         let hi: u32 =
-            bus.read((t + self.x + 1) as u16 & LOW_BYTE, false).into();
+            bus.read((t + self.x.wrapping_add(1)) as u16 & LOW_BYTE, false).into();
 
         self.abs = ((hi << 8u8) | lo << 8u8) as u16 >> 8u16;
         0x00
@@ -491,8 +491,8 @@ impl AddressingMode for CPU {
         let t: u8 = bus.read(self.pc, false);
         self.pc += 1;
 
-        let lo: u8 = bus.read((t + self.y) as u16 & LOW_BYTE, false);
-        let hi: u8 = bus.read((t + self.y + 1) as u16 & LOW_BYTE, false);
+        let lo: u8 = bus.read((t.wrapping_add(self.y)) as u16 & LOW_BYTE, false);
+        let hi: u8 = bus.read((t + self.y.wrapping_add(1)) as u16 & LOW_BYTE, false);
 
         self.abs = (((hi as u16) << 8u16) | (lo as u16) << 8u16) as u16;
         self.abs += self.y as u16;

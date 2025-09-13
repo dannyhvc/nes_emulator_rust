@@ -60,7 +60,7 @@ impl DebuggerBackend for MockBackend {
         }
     }
     fn read_mem(&self, addr: u16, len: usize) -> Vec<u8> {
-        (0..len).map(|i| ((addr + i as u16) & 0xFF) as u8).collect()
+        (0..len).map(|i| ((addr.wrapping_add(i as u16)) & 0xFF) as u8).collect()
     }
     fn write_mem(&mut self, _addr: u16, _data: &[u8]) {}
     fn step_instruction(&mut self) {}

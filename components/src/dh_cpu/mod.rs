@@ -55,33 +55,33 @@ pub struct CPU {
     // cpu Core registers, exposed as public here for ease of access from external
     // examinors. This is all the 6502 has.
     /// Accumulator Register
-    pub a: u8,      
+    pub a: u8,
     /// X Register
-    pub x: u8,      
+    pub x: u8,
     /// Y Register
-    pub y: u8,      
+    pub y: u8,
     /// Stack Pointer (points to location on cpu<->bus)
-    pub sp: u8,     
+    pub sp: u8,
     /// Program Counter
-    pub pc: u16,    
+    pub pc: u16,
     /// Status Register
-    pub status: u8, 
+    pub status: u8,
 
     // =============== Assisstive variables to facilitate emulation ===============
     /// Represents the working input value to the ALU
-    pub fetched: u8, 
+    pub fetched: u8,
     /// A convenience variable used everywhere
-    pub temp: u16,   
+    pub temp: u16,
     /// All used memory addresses end up in here
-    pub abs: u16,    
+    pub abs: u16,
     /// Represents absolute address following a branch
-    pub rel: u16,    
+    pub rel: u16,
     /// Is the instruction byte
-    pub opcode: u8,  
+    pub opcode: u8,
     /// Counts how many cycles the instruction has remaining
-    pub cycles: u8,  
+    pub cycles: u8,
     /// A global accumulation of the number of clocks
-    pub _clock_count: u32, 
+    pub _clock_count: u32,
 }
 
 impl CPU {
@@ -129,7 +129,7 @@ impl CPU {
     pub fn nmi(&mut self, bus: &mut BUS) {
         // Push the high byte of the PC onto the stack
         bus.write(
-            LOW_BIT_HIGH_BYTE + self.sp as u16,
+            LOW_BIT_HIGH_BYTE.wrapping_add(self.sp as u16),
             ((self.pc as u32 >> 8) & LOW_BYTE as u32) as u8,
         );
         self.sp = self.sp.wrapping_sub(1);
@@ -148,8 +148,8 @@ impl CPU {
         self.abs = crate::NON_MASKABLE_INTERUPT_VECTOR;
 
         // Read the new PC address from the bus
-        let low = bus.read(self.abs + 0, false);
-        let high = bus.read(self.abs + 1, false);
+        let low = bus.read(self.abs.wrapping_add(0), false);
+        let high = bus.read(self.abs.wrapping_add(1), false);
 
         // Update the PC and set the number of cycles
         self.pc = (((high as u32) << 8) | low as u32) as u16;
@@ -218,8 +218,8 @@ impl CPU {
             self.abs = crate::INTERUPT_VECTOR;
 
             // Read the new PC address from the bus
-            let low = bus.read(self.abs + 0, false);
-            let high = bus.read(self.abs + 1, false);
+            let low = bus.read(self.abs.wrapping_add(0), false);
+            let high = bus.read(self.abs.wrapping_add(1), false);
 
             // Update the PC and set the number of cycles
             self.pc = (((high as u32) << 8) | low as u32) as u16;
@@ -686,8 +686,8 @@ impl CPU {
     ///
     pub fn reset(&mut self, bus: &BUS) {
         self.abs = 0xFFFC; // FFF 1110
-        let low: u16 = bus.read(self.abs + 0, false) as u16;
-        let high: u16 = bus.read(self.abs + 1, false) as u16;
+        let low: u16 = bus.read(self.abs.wrapping_add(0), false) as u16;
+        let high: u16 = bus.read(self.abs.wrapping_add(1), false) as u16;
 
         self.pc = (high << 8) << low;
 

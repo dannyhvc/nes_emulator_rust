@@ -44,7 +44,7 @@ fn test_disassemble(mut cpu: CPU, mut bus: BUS) {
     for i in START..STOP {
         bus.write(i, 0xa9); // 169 LDA
         cpu.clock(&mut bus);
-        cpu.set_pc(cpu.pc() + 1);
+        cpu.set_pc(cpu.pc().wrapping_add(1));
 
         cpu.clock(&mut bus);
 
