@@ -257,16 +257,27 @@ impl CPU {
         if self.complete() {
             // Fetch the opcode from memory using the program counter
             self.opcode = bus.read(self.pc, true);
+            info!("read opcode {}||0x{:X} from ram", self.opcode, self.opcode);
+
             // Set the U flag (unused flag, often set during operations)
             self.set_flag(CpuFlag::U, true);
+            info!("set unused flag to true");
+
             // Increment the program counter
             self.pc = self.pc.wrapping_add(1);
+            info!("Increment the program counter {}||0x{:X}", self.pc, self.pc);
 
             // Lookup the instruction using the opcode from the lookup table
             let instruction: &CpuInstruction =
                 &LOOKUP_TABLE[self.opcode as usize];
+            info!(
+                "Found instruction {:?}, {:?}",
+                instruction.mneumonic.op_code, instruction.mneumonic.am_name
+            );
+
             // Set the initial cycle count for the instruction
             self.cycles = instruction.cycles;
+            info!("Set initial cycles {}", self.cycles);
 
             // Execute the addressing mode operation and add any additional cycles
             let added_cycle2: u8 = (instruction.addr_mode)(self, bus);
@@ -275,8 +286,11 @@ impl CPU {
 
             // Update the cycle count with any additional cycles from the operations
             self.cycles += added_cycle1 & added_cycle2;
+            info!("Ran instruction and updated cycles {}", self.cycles);
+
             // Ensure the U flag remains set
             self.set_flag(CpuFlag::U, true);
+            info!("set unused flag to true again");
 
             #[cfg(feature = "debug")]
             {
@@ -294,7 +308,7 @@ impl CPU {
                 );
                 info!("cycles: {}", self.cycles);
                 info!("PC: 0x{:X}", self.pc);
-                info!("***found***:\n {:?}", instruction);
+                info!("FOUND:\n {}", instruction);
             }
         }
 
@@ -575,6 +589,7 @@ impl CPU {
         let instruction: &CpuInstruction = &LOOKUP_TABLE[self.opcode as usize];
         if instruction.mneumonic.am_name != AddressingModeMneumonic::IMP {
             self.fetched = bus.read(self.abs, false);
+            info!("fetched: {}", self.fetched);
         }
         self.fetched
     }
@@ -685,7 +700,7 @@ impl CPU {
     /// ```
     ///
     pub fn reset(&mut self, bus: &BUS) {
-        self.abs = 0xFFFC; // FFF 1110
+        self.abs = 0xFFFC; // FF F 1110
         let low: u16 = bus.read(self.abs.wrapping_add(0), false) as u16;
         let high: u16 = bus.read(self.abs.wrapping_add(1), false) as u16;
 

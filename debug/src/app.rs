@@ -57,7 +57,7 @@ fn match_key_press_special(
         }
 
         iced::keyboard::key::Named::Space => {
-            clock_cpu(state);
+            _ = clock_cpu(state); // TODO: use this task for something
         }
         _ => (), // not implemented but not erroring
     }

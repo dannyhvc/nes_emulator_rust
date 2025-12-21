@@ -15,6 +15,12 @@ macro_rules! bs {
     );
 }
 
+use log::info;
+#[cfg(feature = "debug")]
+macro_rules! on_dbg {
+    ($($arg:tt)+) => ($crate::log!($crate::Level::Info, $($arg)+))
+}
+
 use eyre::Result as ErrorOr;
 
 fn main() -> ErrorOr<()> {

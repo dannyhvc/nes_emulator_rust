@@ -82,6 +82,7 @@ impl BUS {
         split_data.into_iter().for_each(|x| {
             // Turning str to hex in
             let byte = u16::from_str_radix(x, BASE_HEX).unwrap();
+            println!("{byte}");
             self.ram[*offset] = byte as u8;
             *offset += 1;
         });
@@ -116,7 +117,7 @@ impl BUS {
 
         if addr >= START_OF_RAM && addr <= END_OF_RAM {
             info!(
-                "|RAM Accessed| 0x{addr:X}-{addr} = 0x{:X}-{}",
+                "RAM Accessed - ram[0x{addr:X} 0d{addr}] ==> {:X} 0d{}",
                 self.ram[addr as usize], self.ram[addr as usize]
             );
             return self.ram[addr as usize];

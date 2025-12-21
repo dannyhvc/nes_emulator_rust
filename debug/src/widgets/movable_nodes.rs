@@ -199,8 +199,8 @@ impl<'a, Message> iced::advanced::Widget<Message, iced::Theme, Renderer>
                         // Start dragging the node
                         self.dragging = Some(index);
                         self.drag_offset = iced::Vector::new(
-                            cursor_position.x - self.nodes[index].position.x,
-                            cursor_position.y - self.nodes[index].position.y,
+                            cursor_position.x.wrapping_sub(self.nodes[index].position.x),
+                            cursor_position.y.wrapping_sub(self.nodes[index].position.y),
                         );
                         return iced::advanced::graphics::core::event::Status::Captured;
                     }
@@ -223,8 +223,8 @@ impl<'a, Message> iced::advanced::Widget<Message, iced::Theme, Renderer>
                         // Update the position of the dragged node
                         if let Some(node) = self.nodes.get_mut(dragging_index) {
                             node.position = iced::Point::new(
-                                position.x - self.drag_offset.x,
-                                position.y - self.drag_offset.y,
+                                position.x.wrapping_sub(self.drag_offset.x),
+                                position.y.wrapping_sub(self.drag_offset.y),
                             );
                             // Trigger a redraw
                             shell.invalidate_layout();

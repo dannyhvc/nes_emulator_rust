@@ -89,7 +89,9 @@ fn example_1() -> Vec<Vec<u16>> {
 
 // highly coupled specific function designed to immitate a simple incrementor in a loop
 fn program_1(cpu: &mut CPU, bus: &mut BUS, offset: &mut usize) {
-    const PROGRAM_STR: &str = "A2 00 8E 00 00 E8 8E 00 00 4C 05 80";
+    // same as example_1 just uses the instructions from string instead
+    // const PROGRAM_STR: &str = "A2 00 8E 00 00 E8 8E 00 00 4C 05 80";
+    const PROGRAM_STR: &str = "A2 00 8E 00 00";
     log::info!("{PROGRAM_STR}");
     _ = bus.load_program(PROGRAM_STR, offset);
 
@@ -100,7 +102,7 @@ fn program_1(cpu: &mut CPU, bus: &mut BUS, offset: &mut usize) {
 
 fn mini_program(cpu: &mut CPU, bus: &mut BUS) -> Vec<(u16, String)> {
     const START_DEBUG: u16 = 0x8000;
-    const STOP_DEBUG: u16 = 0x800B;
+    const STOP_DEBUG: u16 = 0x8005;
 
     let mut offset: usize = START_DEBUG.into();
     program_1(cpu, bus, &mut offset);

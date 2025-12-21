@@ -1,4 +1,6 @@
 #![allow(non_snake_case)]
+use std::fmt::Display;
+
 // use self::instruction_mneumonic::InstructionMneumonic;
 use super::{dh_bus::BUS, dh_cpu::CPU};
 
@@ -75,6 +77,15 @@ pub struct CpuInstruction {
     pub op_code: for<'a, 'b> fn(&'a mut CPU, &'b mut BUS) -> u8, // OPCODE
     pub addr_mode: for<'a, 'b> fn(&'a mut CPU, &'b mut BUS) -> u8, // ADDRESSING MODE
     pub cycles: u8, // CYCLE COUNT
+}
+
+impl Display for CpuInstruction {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "CpuInstruction:")?;
+        writeln!(f, "\tmneumonic = {:?}", self.mneumonic)?;
+        writeln!(f, "\tcycles = {:?}", self.cycles)?;
+        Ok(())
+    }
 }
 
 /// `InstructionMneumonic` is a structure that represents the mnemonic of an instruction.
