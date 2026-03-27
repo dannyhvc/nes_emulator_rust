@@ -8,6 +8,11 @@ use crate::dh_bus::BUS;
 use crate::types::{AddressingModeMneumonic, CpuFlag};
 use crate::{LOOKUP_TABLE, LOW_BIT_HIGH_BYTE, LOW_BYTE};
 
+pub mod addressing_modes;
+pub mod default;
+pub mod display;
+pub mod opcodes;
+
 /// # Mos 6502AD
 /// ## Fields
 /// cpu Core registers, exposed as public here for ease of access from external examinors
@@ -841,7 +846,3 @@ impl CPU {
     }
 }
 
-pub mod addressing_modes;
-pub mod default;
-pub mod display;
-pub mod opcodes;

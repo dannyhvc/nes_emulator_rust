@@ -143,10 +143,10 @@ impl AddressingMode for CPU {
     /// // The `abs` register in the `cpu` will now hold the value 0x42 from the zero page.
     /// ```
     fn ZPX(&mut self, bus: &mut BUS) -> u8 {
-        self.abs = bus.read(self.pc.wrapping_add(self.x as u16), false) as u16;
-        self.pc += 1;
+        self.abs = bus.read(self.pc, false).wrapping_add(self.x) as u16;
+        self.pc = self.pc.wrapping_add(1);
         self.abs &= LOW_BYTE;
-        0x00
+        0
     }
 
     /// Zero Page Indexed with Y Register Addressing (ZPY)
@@ -183,10 +183,10 @@ impl AddressingMode for CPU {
     /// // The `abs` register in the `cpu` will now hold the value 0x42 from the zero page.
     /// ```
     fn ZPY(&mut self, bus: &mut BUS) -> u8 {
-        self.abs = bus.read(self.pc.wrapping_add(self.y as u16), false) as u16;
-        self.pc += 1;
+        self.abs = bus.read(self.pc, false).wrapping_add(self.y) as u16;
+        self.pc = self.pc.wrapping_add(1);
         self.abs &= LOW_BYTE;
-        0x00
+        0
     }
 
     /// Absolute Addressing (ABS)
@@ -223,12 +223,14 @@ impl AddressingMode for CPU {
     /// // The `abs` register in the `cpu` will now hold the value 0x3412 (little-endian).
     /// ```
     fn ABS(&mut self, bus: &mut BUS) -> u8 {
-        let lo: u32 = bus.read(self.pc as u16, false).into();
-        self.pc += 1;
-        let hi: u32 = bus.read(self.pc as u16, false).into();
-        self.pc += 1;
-        self.abs = ((hi << 8) | lo) as u16;
-        0x00
+        let lo = bus.read(self.pc as u16, false);
+        self.pc = self.pc.wrapping_add(1);
+
+        let hi = bus.read(self.pc as u16, false);
+        self.pc = self.pc.wrapping_add(1);
+
+        self.abs = u16::from_le_bytes([lo, hi]);
+        0
     }
 
     /// Absolute Indexed with X Register Addressing (ABX)
@@ -267,18 +269,16 @@ impl AddressingMode for CPU {
     /// // since X was added to the absolute address.
     /// ```
     fn ABX(&mut self, bus: &mut BUS) -> u8 {
-        let lo: u32 = bus.read(self.pc as u16, false).into();
-        self.pc += 1;
-        let hi: u32 = bus.read(self.pc as u16, false).into();
-        self.pc += 1;
-        self.abs = ((hi << 8) | lo) as u16;
-        self.abs += self.x as u16;
+        let lo = bus.read(self.pc as u16, false);
+        self.pc = self.pc.wrapping_add(1);
 
-        return if (self.abs & LOW_BYTE) != (hi << 8) as u16 {
-            0x01
-        } else {
-            0x00
-        };
+        let hi = bus.read(self.pc as u16, false);
+        self.pc = self.pc.wrapping_add(1);
+
+        let base = u16::from_le_bytes([lo, hi]);
+        self.abs = base.wrapping_add(self.x as u16);
+
+        ((self.abs & HIGH_BYTE) != (base & HIGH_BYTE)) as u8
     }
 
     /// Absolute Indexed with Y Register Addressing (ABY)
@@ -317,18 +317,16 @@ impl AddressingMode for CPU {
     /// // since Y was added to the absolute address.
     /// ```
     fn ABY(&mut self, bus: &mut BUS) -> u8 {
-        let lo: u16 = bus.read(self.pc as u16, false).into();
-        self.pc += 1;
-        let hi: u16 = bus.read(self.pc as u16, false).into();
-        self.pc += 1;
-        self.abs = ((hi << 8) | lo) as u16;
-        self.abs += self.y as u16;
+        let lo = bus.read(self.pc, false);
+        self.pc = self.pc.wrapping_add(1);
 
-        return if (self.abs & LOW_BYTE) != (hi << 8) as u16 {
-            0x01
-        } else {
-            0x00
-        };
+        let hi = bus.read(self.pc, false);
+        self.pc = self.pc.wrapping_add(1);
+
+        let base = u16::from_le_bytes([lo, hi]);
+        self.abs = base.wrapping_add(self.y as u16);
+
+        ((self.abs & HIGH_BYTE) != (base & HIGH_BYTE)) as u8
     }
 
     /// Relative Addressing (REL)
@@ -366,10 +364,10 @@ impl AddressingMode for CPU {
     fn REL(&mut self, bus: &mut BUS) -> u8 {
         self.rel = bus.read(self.pc, false) as u16;
         self.pc += 1;
-        if (self.rel & 0x08) != 0 {
-            self.abs |= LOW_BYTE;
+        if (self.rel & 0x80) != 0 {
+            self.rel |= LOW_BYTE;
         }
-        0x00
+        0
     }
 
     /// This function implements the "Indirect" addressing mode for the M6502 CPU.
@@ -400,25 +398,27 @@ impl AddressingMode for CPU {
     /// assert_eq!(result, 0x00);
     ///```
     fn IND(&mut self, bus: &mut BUS) -> u8 {
-        let pointer_lo = bus.read(self.pc, false) as u16;
-        self.pc += 1;
-        let pointer_hi = bus.read(self.pc as u16, false) as u16;
-        self.pc += 1;
+        let ptr_lo = bus.read(self.pc, false);
+        self.pc = self.pc.wrapping_add(1);
 
-        let ptr: u16 = (pointer_hi << 8u16) | pointer_lo;
+        let ptr_hi = bus.read(self.pc, false);
+        self.pc = self.pc.wrapping_add(1);
 
-        let lo: u32;
-        let hi: u32;
-        if pointer_lo == LOW_BYTE {
-            lo = (bus.read(ptr & LOW_BYTE, false) as u32) << 8;
-            hi = bus.read(ptr.wrapping_add(0), false).into();
-            self.abs = (lo | hi) as u16;
+        let ptr = u16::from_le_bytes([ptr_lo, ptr_hi]);
+
+        // Replicate the 6502 page-boundary hardware bug:
+        // if the low byte of the pointer is 0xFF the high byte wraps within the page.
+        let lo: u8;
+        let hi: u8;
+        if u16::from(ptr_lo) == LOW_BYTE {
+            lo = bus.read(ptr & HIGH_BYTE, false);
+            hi = bus.read(ptr, false);
         } else {
-            lo = (bus.read(ptr.wrapping_add(1), false) as u32) << 8;
-            hi = bus.read(ptr.wrapping_add(0), false).into();
-            self.abs = (lo | hi) as u16;
+            lo = bus.read(ptr.wrapping_add(1), false);
+            hi = bus.read(ptr, false);
         }
-        0x00
+        self.abs = u16::from_le_bytes([lo, hi]);
+        0
     }
 
     /// Indirect Zero-Page Indexed with X Addressing Mode
@@ -464,17 +464,17 @@ impl AddressingMode for CPU {
     /// ```
     fn IZX(&mut self, bus: &mut BUS) -> u8 {
         let t: u8 = bus.read(self.pc, false);
-        self.pc += 1;
+        self.pc = self.pc.wrapping_add(1);
 
-        let lo: u32 = bus
-            .read((t.wrapping_add(self.x)) as u16 & LOW_BYTE, false)
-            .into();
-        let hi: u32 = bus
-            .read((t + self.x.wrapping_add(1)) as u16 & LOW_BYTE, false)
-            .into();
+        let lo = bus.read((t.wrapping_add(self.x)) as u16 & LOW_BYTE, false);
+        let hi = bus.read(
+            (t.wrapping_add(self.x).wrapping_add(1)) as u16 & LOW_BYTE,
+            false,
+        );
 
-        self.abs = ((hi << 8u8) | lo << 8u8) as u16 >> 8u16;
-        0x00
+        self.abs = u16::from_le_bytes([lo, hi]);
+        self.abs = hi.wrapping_shl(hi as u32) as u16 | lo as u16;
+        0
     }
 
     /// Indirect Indexed with Y Addressing Mode
@@ -491,21 +491,15 @@ impl AddressingMode for CPU {
     /// The result of the operation, which is either 0 or 1 depending on whether
     /// the operation resulted in a page boundary crossing.
     fn IZY(&mut self, bus: &mut BUS) -> u8 {
-        let t: u8 = bus.read(self.pc, false);
-        self.pc += 1;
+        let temp = bus.read(self.pc, false) as u16;
+        self.pc = self.pc.wrapping_add(1);
 
-        let lo: u8 =
-            bus.read((t.wrapping_add(self.y)) as u16 & LOW_BYTE, false);
-        let hi: u8 =
-            bus.read((t + self.y.wrapping_add(1)) as u16 & LOW_BYTE, false);
+        let lo = bus.read(temp & LOW_BYTE, false); // FIX: was (t + y) & LO
+        let hi = bus.read((temp + 1) & LOW_BYTE, false); // FIX: was (t + y + 1) & LO
 
-        self.abs = (((hi as u16) << 8u16) | (lo as u16) << 8u16) as u16;
-        self.abs += self.y as u16;
+        let base = u16::from_le_bytes([lo, hi]);
+        self.abs = base.wrapping_add(self.y as u16);
 
-        return if (self.abs & HIGH_BYTE) != ((hi as u16) << 8u8) as u16 {
-            0x01
-        } else {
-            0x00
-        };
+        ((self.abs & HIGH_BYTE) != (base & HIGH_BYTE)) as u8
     }
 }
