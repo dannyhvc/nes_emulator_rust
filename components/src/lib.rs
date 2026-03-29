@@ -19,7 +19,7 @@ pub const START_OF_RAM: u16 = 0x0000;
 pub const END_OF_RAM: u16 = 0xFFFF;
 pub const LOW_BYTE: u16 = 0x00FF;
 pub const HIGH_BYTE: u16 = 0xFF00;
-pub const TOP_BIT_THRESH: u16 = 0x0080;
+pub const BIT7_OF_LOW: u16 = 0x0080;
 pub const LOW_BIT_HIGH_BYTE: u16 = 0x0100;
 
 pub const RESET_VECTOR_HIGH_BYTE: u16 = 0xFFFD;

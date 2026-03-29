@@ -16,7 +16,7 @@ pub mod opcodes;
 /// # Mos 6502AD
 /// ## Fields
 /// cpu Core registers, exposed as public here for ease of access from external examinors
-/// * `a` - Accumulator Register
+/// * `acc` - Accumulator Register
 /// * `x` - X Register
 /// * `y` - Y Register
 /// * `sp` - Stack Pointer (points to location on cpu.bus)
@@ -60,7 +60,7 @@ pub struct CPU {
     // cpu Core registers, exposed as public here for ease of access from external
     // examinors. This is all the 6502 has.
     /// Accumulator Register
-    pub a: u8,
+    pub acc: u8,
     /// X Register
     pub x: u8,
     /// Y Register
@@ -91,7 +91,7 @@ pub struct CPU {
 
 impl CPU {
     pub const fn a(&self) -> u8 {
-        self.a
+        self.acc
     }
 
     pub const fn abs(&self) -> u16 {
@@ -285,12 +285,12 @@ impl CPU {
             info!("Set initial cycles {}", self.cycles);
 
             // Execute the addressing mode operation and add any additional cycles
-            let added_cycle2: u8 = (instruction.addr_mode)(self, bus);
+            let added_cycle1 = (instruction.addr_mode)(self, bus);
             // Execute the opcode operation and add any additional cycles
-            let added_cycle1: u8 = (instruction.op_code)(self, bus);
+            let added_cycle2 = (instruction.op_code)(self, bus);
 
             // Update the cycle count with any additional cycles from the operations
-            self.cycles += added_cycle1 & added_cycle2;
+            self.cycles += added_cycle2 & added_cycle1;
             info!("Ran instruction and updated cycles {}", self.cycles);
 
             // Ensure the U flag remains set
@@ -318,7 +318,7 @@ impl CPU {
         }
 
         // Increment the internal clock count
-        self._clock_count += 1;
+        self._clock_count = self._clock_count.wrapping_add(1);
         // Decrement the remaining cycles
         self.cycles = self.cycles.wrapping_sub(1);
     }
@@ -396,7 +396,7 @@ impl CPU {
             // retrieve the instruction from the opcode lookup
             let instruction: &CpuInstruction = &LOOKUP_TABLE[opcode as usize];
 
-            address += 1;
+            address = address.wrapping_add(1);
             instruction_address
                 .push_str(format!("{} ", instruction.mneumonic.name).as_str());
 
@@ -410,7 +410,7 @@ impl CPU {
                 // Immediate addressing mode (8-bit immediate value)
                 AddressingModeMneumonic::IMM => {
                     _value = bus.read(address as u16, true);
-                    address += 1;
+                    address = address.wrapping_add(1);
                     high = 0x00;
                     // let string_rep = format!("#${} {{imm}}", helpers::to_hex(low as u32, 2));
                     let string_rep: String =
@@ -421,7 +421,7 @@ impl CPU {
                 // Zero Page addressing mode (8-bit memory location address)
                 AddressingModeMneumonic::ZP0 => {
                     low = bus.read(address as u16, true);
-                    address += 1;
+                    address = address.wrapping_add(1);
                     high = 0x00;
                     let string_rep: String =
                         format!("${:x}{:x} {{zp0}}", low, high);
@@ -431,7 +431,7 @@ impl CPU {
                 // Zero Page X addressing mode (8-bit memory location address + X register)
                 AddressingModeMneumonic::ZPX => {
                     low = bus.read(address as u16, true);
-                    address += 1;
+                    address = address.wrapping_add(1);
                     // high = 0x00;
                     let string_rep: String = format!("${:x}, X {{zpx}}", low);
                     instruction_address.push_str(&string_rep);
@@ -440,7 +440,7 @@ impl CPU {
                 // Zero Page Y addressing mode (8-bit memory location address + X register)
                 AddressingModeMneumonic::ZPY => {
                     low = bus.read(address as u16, true);
-                    address += 1;
+                    address = address.wrapping_add(1);
                     // high = 0x00;
                     let string_rep: String = format!("${:x}, Y {{zpy}}", low);
                     instruction_address.push_str(&string_rep);
@@ -450,7 +450,7 @@ impl CPU {
                 // byte, format it as a hex string with "($...,X)" and add it to the instruction address.
                 AddressingModeMneumonic::IZX => {
                     low = bus.read(address as u16, true);
-                    address += 1;
+                    address = address.wrapping_add(1);
                     // high = 0x00;
                     let string_rep: String = format!("(${:x}, X) {{izx}}", low);
                     instruction_address.push_str(&string_rep);
@@ -460,7 +460,7 @@ impl CPU {
                 // byte, format it as a hex string with "($...),Y" and add it to the instruction address.
                 AddressingModeMneumonic::IZY => {
                     low = bus.read(address as u16, true);
-                    address += 1;
+                    address = address.wrapping_add(1);
                     // high = 0x00;
                     let string_rep: String = format!("(${:x}), Y {{izy}}", low);
                     instruction_address.push_str(&string_rep);
@@ -470,9 +470,9 @@ impl CPU {
                 // format them as a hex string with "{abs}", and add it to the instruction address.
                 AddressingModeMneumonic::ABS => {
                     low = bus.read(address as u16, false);
-                    address += 1;
+                    address = address.wrapping_add(1);
                     high = bus.read(address as u16, false);
-                    address += 1;
+                    address = address.wrapping_add(1);
                     let string_rep: String = format!(
                         "${:x} {{abs}}",
                         (((high as u32) << 8) | low as u32)
@@ -484,9 +484,9 @@ impl CPU {
                 // combine them, format them as a hex string with "{abx}", and add it to the instruction address.
                 AddressingModeMneumonic::ABX => {
                     low = bus.read(address as u16, false);
-                    address += 1;
+                    address = address.wrapping_add(1);
                     high = bus.read(address as u16, false);
-                    address += 1;
+                    address = address.wrapping_add(1);
                     let string_rep: String = format!(
                         "${:x} {{abx}}",
                         (((high as u32) << 8) | low as u32)
@@ -498,9 +498,9 @@ impl CPU {
                 // combine them, format them as a hex string with "{aby}", and add it to the instruction address.
                 AddressingModeMneumonic::ABY => {
                     low = bus.read(address as u16, false);
-                    address += 1;
+                    address = address.wrapping_add(1);
                     high = bus.read(address as u16, false);
-                    address += 1;
+                    address = address.wrapping_add(1);
                     let string_rep: String = format!(
                         "${:x} {{aby}}",
                         (((high as u32) << 8) | low as u32)
@@ -512,9 +512,9 @@ impl CPU {
                 // format them as a hex string with "($...)", and add it to the instruction address.
                 AddressingModeMneumonic::IND => {
                     low = bus.read(address as u16, false);
-                    address += 1;
+                    address = address.wrapping_add(1);
                     high = bus.read(address as u16, false);
-                    address += 1;
+                    address = address.wrapping_add(1);
                     let string_rep: String = format!(
                         "(${:x}) {{ind}}",
                         (((high as u32) << 8) | low as u32)
@@ -526,14 +526,14 @@ impl CPU {
                 // Read the byte value at the memory address and increment the program counter
                 AddressingModeMneumonic::REL => {
                     _value = bus.read(address as u16, false);
-                    address += 1;
+                    address = address.wrapping_add(1);
 
                     // Generate a string representation of the instruction address using the value
                     // read and the program counter
                     let string_rep: String = format!(
                         "${:x} [${:x}] {{rel}}",
                         _value,
-                        address + _value as u32
+                        address.wrapping_add(_value as u32)
                     );
 
                     // Append the string representation to the existing instruction address string
@@ -642,7 +642,7 @@ impl CPU {
     #[inline]
     pub const fn new() -> CPU {
         CPU {
-            a: 0x00,
+            acc: 0x00,
             x: 0x00,
             y: 0x00,
             sp: 0x00,
@@ -706,12 +706,12 @@ impl CPU {
     ///
     pub fn reset(&mut self, bus: &BUS) {
         self.abs = 0xFFFC; // FF F 1110
-        let low: u16 = bus.read(self.abs.wrapping_add(0), false) as u16;
-        let high: u16 = bus.read(self.abs.wrapping_add(1), false) as u16;
+        let low = bus.read(self.abs, false);
+        let high = bus.read(self.abs.wrapping_add(1), false);
 
-        self.pc = (high << 8) << low;
+        self.pc = u16::from_le_bytes([low, high]);
 
-        self.a = 0;
+        self.acc = 0;
         self.x = 0;
         self.y = 0;
         self.sp = 0xFD;
@@ -726,7 +726,7 @@ impl CPU {
 
     #[cfg(feature = "debug")]
     pub fn set_a(&mut self, a: u8) {
-        self.a = a;
+        self.acc = a;
     }
 
     #[cfg(feature = "debug")]
@@ -781,7 +781,7 @@ impl CPU {
         if conditional_set {
             self.status |= f as u8;
         } else {
-            self.status |= !(f as u8) // flip da bits
+            self.status &= !(f as u8) // flip da bits
         }
     }
 
@@ -845,4 +845,3 @@ impl CPU {
         self.y
     }
 }
-

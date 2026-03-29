@@ -1,7 +1,7 @@
 #![allow(non_snake_case)]
 
-use crate::AddressingMode;
 use crate::{dh_bus::BUS, dh_cpu::CPU, HIGH_BYTE, LOW_BYTE};
+use crate::{AddressingMode, BIT7_OF_LOW};
 
 impl AddressingMode for CPU {
     /// Implied Addressing (IMP)
@@ -34,8 +34,8 @@ impl AddressingMode for CPU {
     /// // The `fetched` register in the `cpu` will now hold the value from the accumulator.
     /// ```
     fn IMP(&mut self, _: &mut BUS) -> u8 {
-        self.fetched = self.a;
-        0x00
+        self.fetched = self.acc;
+        0
     }
 
     /// Immediate Addressing (IMM)
@@ -68,7 +68,7 @@ impl AddressingMode for CPU {
     /// ```
     fn IMM(&mut self, _bus: &mut BUS) -> u8 {
         self.abs = self.pc;
-        0x00
+        0
     }
 
     /// Zero Page Addressing (ZP0)
@@ -103,10 +103,10 @@ impl AddressingMode for CPU {
     /// // The `abs` register in the `cpu` will now hold the value 0x42 from the zero page.
     /// ```
     fn ZP0(&mut self, bus: &mut BUS) -> u8 {
-        self.abs = bus.read(self.pc, false) as u16;
-        self.pc += 1;
+        self.abs = u16::from(bus.read(self.pc, false));
+        self.pc = self.pc.wrapping_add(1);
         self.abs &= LOW_BYTE; // checking if high bit is on a new page
-        0x00
+        0
     }
 
     /// Zero Page Indexed with X Register Addressing (ZPX)
@@ -362,9 +362,9 @@ impl AddressingMode for CPU {
     /// // The `rel` register in the `cpu` will now hold the value 16 (sign-extended).
     /// ```
     fn REL(&mut self, bus: &mut BUS) -> u8 {
-        self.rel = bus.read(self.pc, false) as u16;
-        self.pc += 1;
-        if (self.rel & 0x80) != 0 {
+        self.rel = u16::from(bus.read(self.pc, false));
+        self.pc = self.pc.wrapping_add(1);
+        if (self.rel & BIT7_OF_LOW) != 0 {
             self.rel |= LOW_BYTE;
         }
         0

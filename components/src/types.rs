@@ -74,8 +74,8 @@ impl Default for CpuFlag {
 #[derive(Debug)]
 pub struct CpuInstruction {
     pub mneumonic: Mneumonic,
-    pub op_code: for<'a, 'b> fn(&'a mut CPU, &'b mut BUS) -> u8, // OPCODE
-    pub addr_mode: for<'a, 'b> fn(&'a mut CPU, &'b mut BUS) -> u8, // ADDRESSING MODE
+    pub op_code: fn(&mut CPU, &mut BUS) -> u8, // OPCODE
+    pub addr_mode: fn(&mut CPU, &mut BUS) -> u8, // ADDRESSING MODE
     pub cycles: u8, // CYCLE COUNT
 }
 

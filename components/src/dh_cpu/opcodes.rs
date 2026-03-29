@@ -3,7 +3,7 @@
 use crate::dh_cpu::CPU;
 use crate::types::{CpuFlag, Opcode};
 use crate::AddressingMode;
-use crate::{dh_bus::BUS, HIGH_BYTE, LOOKUP_TABLE, LOW_BYTE, TOP_BIT_THRESH};
+use crate::{dh_bus::BUS, HIGH_BYTE, LOOKUP_TABLE, LOW_BYTE, BIT7_OF_LOW};
 
 impl Opcode for CPU {
     /// Perform an addition with carry of the value fetched from the memory pointed to by the program
@@ -62,11 +62,10 @@ impl Opcode for CPU {
         // Grab the data that we are adding to the accumulator
         // Add is performed in 16-bit domain for emulation to capture any
         // carry bit, which will exist in bit 8 of the 16-bit word
-        self.temp = self
-            .a
-            .wrapping_add(self.fetch(bus))
-            .wrapping_add(self.get_flag(CpuFlag::C))
-            .into();
+        let fetched = self.fetch(bus) as u16;
+        self.temp = Into::<u16>::into(self.acc)
+            .wrapping_add(fetched)
+            .wrapping_add(self.get_flag(CpuFlag::C) as u16);
 
         // The carry flag out exists in the high byte bit 0
         self.set_flag(CpuFlag::C, self.temp > 255);
@@ -77,20 +76,20 @@ impl Opcode for CPU {
         // The signed Overflow flag is set based on all that up there! :D
         self.set_flag(
             CpuFlag::V,
-            !(self.a as u16 ^ self.fetched as u16)
-                & (self.a as u16 ^ self.temp)
-                & 0x0080
+            !(self.acc as u16 ^ self.fetched as u16)
+                & (self.acc as u16 ^ self.temp)
+                & BIT7_OF_LOW
                 != 0,
         );
 
         // The negative flag is set to the most significant bit of the result
-        self.set_flag(CpuFlag::N, (self.temp & TOP_BIT_THRESH) != 0);
+        self.set_flag(CpuFlag::N, (self.temp & BIT7_OF_LOW) != 0);
 
         // Load the result into the accumulator (it's 8-bit dont forget!)
-        self.a = ((self.temp as u16) & LOW_BYTE) as u8;
+        self.acc = ((self.temp as u16) & LOW_BYTE) as u8;
 
         // This instruction has the potential to require an additional clock cycle
-        1u8
+        1
     }
 
     /// Perform a bitwise AND operation between the accumulator register of the MOS 6502 CPU and the value
@@ -139,13 +138,14 @@ impl Opcode for CPU {
     /// assert_eq!(cpu.get_flag(M6502::M6502Flags::N), true);
     /// ```
     fn AND(&mut self, bus: &mut BUS) -> u8 {
-        self.a &= self.fetch(bus);
-        self.set_flag(CpuFlag::Z, self.a == 0x00);
-        self.set_flag(CpuFlag::N, (self.a & TOP_BIT_THRESH as u8) != 0);
-        1u8
+        self.acc &= self.fetch(bus);
+        self.set_flag(CpuFlag::Z, self.acc == 0);
+        self.set_flag(CpuFlag::N, (self.acc & BIT7_OF_LOW as u8) != 0);
+        1
     }
 
-    /// Perform an arithmetic shift left operation on the value fetched from memory or the accumulator
+    
+    /// Perform an arithmetic shift left operation on the value fetched from memory fetched
     /// register of the MOS 6502 CPU.
     ///
     /// # Arguments
@@ -212,15 +212,15 @@ impl Opcode for CPU {
         self.temp = (self.fetch(bus) << 1).into();
         self.set_flag(CpuFlag::C, (self.temp & HIGH_BYTE) > 0);
         self.set_flag(CpuFlag::Z, (self.temp & LOW_BYTE) == 0);
-        self.set_flag(CpuFlag::N, (self.temp & TOP_BIT_THRESH) != 0);
+        self.set_flag(CpuFlag::N, (self.temp & BIT7_OF_LOW) != 0);
         if LOOKUP_TABLE[self.opcode as usize].addr_mode as usize
             == CPU::IMP as usize
         {
-            self.a = (self.temp & LOW_BYTE) as u8;
+            self.acc = (self.temp & LOW_BYTE) as u8;
         } else {
             bus.write(self.abs, (self.temp & LOW_BYTE) as u8);
         }
-        0u8
+        0
     }
 
     /// Branch on Carry Clear
@@ -241,7 +241,7 @@ impl Opcode for CPU {
     /// The number of cycles that the instruction has consumed, which is always 0.
     #[inline]
     fn BCC(&mut self, _: &mut BUS) -> u8 {
-        if self.get_flag(CpuFlag::C) == 0_u8 {
+        if self.get_flag(CpuFlag::C) == 0 {
             self.cycles = self.cycles.wrapping_add(1_u8);
             self.abs = self.pc.wrapping_add(self.rel);
 
@@ -250,7 +250,7 @@ impl Opcode for CPU {
             }
             self.pc = self.abs;
         }
-        0_u8
+        0
     }
 
     /// Branch on carry set
@@ -318,7 +318,7 @@ impl Opcode for CPU {
             }
             self.pc = self.abs;
         }
-        1u8
+        0
     }
 
     /// Branch on equal (zero set)
@@ -386,7 +386,7 @@ impl Opcode for CPU {
             }
             self.pc = self.abs;
         }
-        0_u8
+        0
     }
 
     /// Bit test
@@ -447,11 +447,11 @@ impl Opcode for CPU {
     /// ```
     #[inline]
     fn BIT(&mut self, bus: &mut BUS) -> u8 {
-        self.temp = (self.a & self.fetch(bus)) as u16;
-        self.set_flag(CpuFlag::Z, (self.temp & LOW_BYTE) == 0x00);
+        self.temp = (self.acc & self.fetch(bus)) as u16;
+        self.set_flag(CpuFlag::Z, (self.temp & LOW_BYTE) == 0);
         self.set_flag(CpuFlag::N, (self.fetched & (1 << 7)) != 0);
         self.set_flag(CpuFlag::V, (self.fetched & (1 << 6)) != 0);
-        0_u8
+        0
     }
 
     /// Branch on result minus
@@ -513,7 +513,7 @@ impl Opcode for CPU {
             }
             self.pc = self.abs;
         }
-        0_u8
+        0
     }
 
     /// Branch on result not equal
@@ -565,7 +565,7 @@ impl Opcode for CPU {
     /// ```
     #[inline]
     fn BNE(&mut self, _: &mut BUS) -> u8 {
-        if self.get_flag(CpuFlag::Z) == 0_u8 {
+        if self.get_flag(CpuFlag::Z) == 0 {
             self.cycles = self.cycles.wrapping_add(1_u8);
             self.abs = self.pc.wrapping_add(self.rel);
 
@@ -574,7 +574,7 @@ impl Opcode for CPU {
             }
             self.pc = self.abs;
         }
-        0_u8
+        0
     }
 
     /// Branch on result plus
@@ -642,7 +642,7 @@ impl Opcode for CPU {
             }
             self.pc = self.abs;
         }
-        0x0u8
+        0
     }
 
     /// Executes the BRK instruction of the [`M6502`] CPU.
@@ -672,10 +672,10 @@ impl Opcode for CPU {
     /// let mut bus = Bus::new();
     /// cpu.pc = 0x200;
     /// cpu.stkp = 0xFD;
-    /// cpu.status = 0x00;
+    /// cpu.status = 0;
     /// bus.write(0xFFFE, 0xAB);
     /// bus.write(0xFFFF, 0xCD);
-    /// let cycles = cpu.execute_instruction(&mut bus, 0x00);
+    /// let cycles = cpu.execute_instruction(&mut bus, 0);
     /// assert_eq!(cycles, 7);
     /// assert_eq!(cpu.pc, 0xCDAB);
     /// assert_eq!(bus.read(0x01FD, false), 0x30);
@@ -683,33 +683,38 @@ impl Opcode for CPU {
     ///
     #[inline]
     fn BRK(&mut self, bus: &mut BUS) -> u8 {
+        const SECOND_BYTE_FIRST_BIT: u16 = 0x0100;
         self.pc = self.pc.wrapping_add(1);
+
         self.set_flag(CpuFlag::I, true);
         bus.write(
-            0x0100_u16.wrapping_add(self.sp as u16),
-            (self.pc >> 8 & LOW_BYTE) as u8,
+            SECOND_BYTE_FIRST_BIT.wrapping_add(self.sp as u16),
+            (self.pc.wrapping_shr(8) & LOW_BYTE) as u8,
         );
         self.sp = self.sp.wrapping_sub(1);
         bus.write(
-            0x0100_u16.wrapping_add(self.sp as u16),
+            SECOND_BYTE_FIRST_BIT.wrapping_add(self.sp as u16),
             (self.pc & LOW_BYTE) as u8,
         );
         self.sp = self.sp.wrapping_sub(1);
 
         self.set_flag(CpuFlag::B, true);
-        bus.write(0x0100_u16.wrapping_add(self.sp as u16), self.status);
+        bus.write(
+            SECOND_BYTE_FIRST_BIT.wrapping_add(self.sp as u16),
+            self.status,
+        );
         self.sp = self.sp.wrapping_sub(1);
         self.set_flag(CpuFlag::B, true);
 
-        self.pc = ((bus.read(0xFFFE, false) != 0x0u8)
-            | (bus.read(0xFFFF, false) != 0x0u8))
-            .into();
-        0x0u8
+        let lo = bus.read(0xFFFE, false);
+        let hi = bus.read(0xFFFF, false);
+        self.pc = u16::from_le_bytes([lo, hi]);
+        0
     }
 
     #[inline]
     fn BVC(&mut self, _: &mut BUS) -> u8 {
-        if self.get_flag(CpuFlag::V) == 0u8 {
+        if self.get_flag(CpuFlag::V) == 0 {
             self.cycles = self.cycles.wrapping_add(1);
             self.abs = self.pc.wrapping_add(self.rel);
 
@@ -718,54 +723,56 @@ impl Opcode for CPU {
             }
             self.pc = self.abs;
         }
-        0x0u8
+        0x0
     }
 
     #[inline]
     fn BVS(&mut self, _: &mut BUS) -> u8 {
-        if self.get_flag(CpuFlag::V) == 1u8 {
+        if self.get_flag(CpuFlag::V) == 1 {
             self.cycles = self.cycles.wrapping_add(1);
-            self.abs = self.pc.wrapping_add(self.rel);
+            self.abs = self.pc.wrapping_add(self.fetched as u16);            
 
             if self.abs & HIGH_BYTE != self.pc & HIGH_BYTE {
                 self.cycles = self.cycles.wrapping_add(1);
             }
             self.pc = self.abs;
         }
-        0x0u8
+        0x0
     }
 
     #[inline]
     fn CLC(&mut self, _: &mut BUS) -> u8 {
         self.set_flag(CpuFlag::C, false);
-        0x0u8
+        0x0
     }
 
     #[inline]
     fn CLD(&mut self, _: &mut BUS) -> u8 {
         self.set_flag(CpuFlag::D, false);
-        0u8
+        0
     }
 
     #[inline]
     fn CLI(&mut self, _: &mut BUS) -> u8 {
         self.set_flag(CpuFlag::I, false);
-        0u8
+        0
     }
 
     #[inline]
     fn CLV(&mut self, _: &mut BUS) -> u8 {
         self.set_flag(CpuFlag::V, false);
-        0u8
+        0
     }
 
     #[inline]
     fn CMP(&mut self, bus: &mut BUS) -> u8 {
-        self.temp = self.a.wrapping_sub(self.fetch(bus)).into();
-        self.set_flag(CpuFlag::C, self.a >= self.fetched);
-        self.set_flag(CpuFlag::Z, self.temp & LOW_BYTE == 0x0000);
-        self.set_flag(CpuFlag::N, self.temp & TOP_BIT_THRESH != 0x0000);
-        1u8
+        let fetched = self.fetch(bus);
+        self.temp = (self.acc as u16).wrapping_sub(fetched as u16);
+        
+        self.set_flag(CpuFlag::C, self.acc >= fetched);
+        self.set_flag(CpuFlag::Z, self.temp & LOW_BYTE == 0);
+        self.set_flag(CpuFlag::N, self.temp & BIT7_OF_LOW != 0);
+        1
     }
 
     /// Compare X Register with Memory
@@ -785,102 +792,102 @@ impl Opcode for CPU {
     fn CPX(&mut self, bus: &mut BUS) -> u8 {
         self.temp = self.x.wrapping_sub(self.fetch(bus)).into();
         self.set_flag(CpuFlag::C, self.x >= self.fetched);
-        self.set_flag(CpuFlag::Z, self.temp & LOW_BYTE == 0x0000);
-        self.set_flag(CpuFlag::N, self.temp & TOP_BIT_THRESH != 0x0000);
-        0u8
+        self.set_flag(CpuFlag::Z, self.temp & LOW_BYTE == 0);
+        self.set_flag(CpuFlag::N, self.temp & BIT7_OF_LOW != 0);
+        0
     }
 
     #[inline]
     fn CPY(&mut self, bus: &mut BUS) -> u8 {
         self.temp = self.y.wrapping_sub(self.fetch(bus)).into();
         self.set_flag(CpuFlag::C, self.y >= self.fetched);
-        self.set_flag(CpuFlag::Z, self.temp & LOW_BYTE == 0x0000);
-        self.set_flag(CpuFlag::N, self.temp & TOP_BIT_THRESH != 0x0000);
-        0u8
+        self.set_flag(CpuFlag::Z, self.temp & LOW_BYTE == 0);
+        self.set_flag(CpuFlag::N, self.temp & BIT7_OF_LOW != 0);
+        0
     }
 
     #[inline]
     fn DEC(&mut self, bus: &mut BUS) -> u8 {
         self.temp = (self.fetch(bus) as u16).wrapping_sub(1);
         bus.write(self.abs, (self.temp & LOW_BYTE) as u8);
-        self.set_flag(CpuFlag::Z, self.temp & LOW_BYTE == 0x0000);
-        self.set_flag(CpuFlag::N, self.temp & TOP_BIT_THRESH != 0x0000);
-        0u8
+        self.set_flag(CpuFlag::Z, self.temp & LOW_BYTE == 0);
+        self.set_flag(CpuFlag::N, self.temp & BIT7_OF_LOW != 0);
+        0
     }
 
     #[inline]
     fn DEX(&mut self, _: &mut BUS) -> u8 {
         self.x = self.x.wrapping_sub(1);
-        self.set_flag(CpuFlag::Z, self.x == 0x00);
-        self.set_flag(CpuFlag::N, self.x & TOP_BIT_THRESH as u8 != 0x0000);
-        0u8
+        self.set_flag(CpuFlag::Z, self.x == 0);
+        self.set_flag(CpuFlag::N, self.x & BIT7_OF_LOW as u8 != 0);
+        0
     }
 
     #[inline]
     fn DEY(&mut self, _: &mut BUS) -> u8 {
         self.y = self.y.wrapping_sub(1);
-        self.set_flag(CpuFlag::Z, self.y == 0x00);
-        self.set_flag(CpuFlag::N, self.y & TOP_BIT_THRESH as u8 != 0x0000);
-        0u8
+        self.set_flag(CpuFlag::Z, self.y == 0);
+        self.set_flag(CpuFlag::N, self.y & BIT7_OF_LOW as u8 != 0);
+        0
     }
 
     #[inline]
     fn EOR(&mut self, bus: &mut BUS) -> u8 {
-        self.a ^= self.fetch(bus);
-        self.set_flag(CpuFlag::Z, self.y == 0x00);
-        self.set_flag(CpuFlag::N, self.y & TOP_BIT_THRESH as u8 != 0x0000);
-        1u8
+        self.acc ^= self.fetch(bus);
+        self.set_flag(CpuFlag::Z, self.acc == 0);
+        self.set_flag(CpuFlag::N, self.acc & BIT7_OF_LOW as u8 != 0);
+        1
     }
 
-    #[inline]
     fn INC(&mut self, bus: &mut BUS) -> u8 {
         self.temp = (self.fetch(bus) as u16).wrapping_add(1);
         bus.write(self.abs, (self.temp & LOW_BYTE) as u8);
-        self.set_flag(CpuFlag::Z, self.temp & LOW_BYTE == 0x0000);
-        self.set_flag(CpuFlag::N, self.temp & TOP_BIT_THRESH != 0x0000);
-        0u8
+        self.set_flag(CpuFlag::Z, self.temp & LOW_BYTE == 0);
+        self.set_flag(CpuFlag::N, self.temp & BIT7_OF_LOW != 0);
+        0
     }
 
     #[inline]
     fn INX(&mut self, _: &mut BUS) -> u8 {
         self.x = self.x.wrapping_add(1);
-        self.set_flag(CpuFlag::Z, self.x == 0x00);
-        self.set_flag(CpuFlag::N, self.x & TOP_BIT_THRESH as u8 != 0x0000);
-        0u8
+        self.set_flag(CpuFlag::Z, self.x == 0);
+        self.set_flag(CpuFlag::N, self.x & BIT7_OF_LOW as u8 != 0);
+        0
     }
 
     #[inline]
     fn INY(&mut self, _: &mut BUS) -> u8 {
         self.y = self.y.wrapping_add(1);
-        self.set_flag(CpuFlag::Z, self.y == 0x00);
-        self.set_flag(CpuFlag::N, self.y & TOP_BIT_THRESH as u8 != 0x0000);
-        0u8
+        self.set_flag(CpuFlag::Z, self.y == 0);
+        self.set_flag(CpuFlag::N, self.y & BIT7_OF_LOW as u8 != 0);
+        0
     }
 
     #[inline]
     fn JMP(&mut self, _: &mut BUS) -> u8 {
         self.pc = self.abs;
-        0u8
+        0
     }
 
     #[inline]
     fn JSR(&mut self, bus: &mut BUS) -> u8 {
+        const BIT0_OF_HIGH: u16 = 0x0100;
         self.pc = self.pc.wrapping_sub(1);
 
         bus.write(
-            0x0100_u16.wrapping_add(self.sp as u16),
-            (self.pc << 8 & LOW_BYTE) as u8,
+            BIT0_OF_HIGH.wrapping_add(self.sp as u16),
+            (self.pc.wrapping_shr(8) & LOW_BYTE) as u8,
         );
         self.sp = self.sp.wrapping_sub(1);
 
         bus.write(
-            0x0100_u16.wrapping_add(self.sp as u16),
+            BIT0_OF_HIGH.wrapping_add(self.sp as u16),
             (self.pc & LOW_BYTE) as u8,
         );
         self.sp = self.sp.wrapping_sub(1);
 
         self.pc = self.abs;
-        0u8
+        0
     }
 
     /// Load Accumulator with Memory
@@ -908,21 +915,21 @@ impl Opcode for CPU {
     /// ```
     #[inline]
     fn LDA(&mut self, bus: &mut BUS) -> u8 {
-        self.a = self.fetch(bus); // using a
-        self.set_flag(CpuFlag::Z, self.a == 0x00);
-        self.set_flag(CpuFlag::N, self.a & TOP_BIT_THRESH as u8 != 0x00);
-        1u8
+        self.acc = self.fetch(bus); // using a
+        self.set_flag(CpuFlag::Z, self.acc == 0);
+        self.set_flag(CpuFlag::N, self.acc & BIT7_OF_LOW as u8 != 0);
+        1
     }
 
-    #[inline]
     fn LDX(&mut self, bus: &mut BUS) -> u8 {
         self.x = self.fetch(bus);
-        self.set_flag(CpuFlag::Z, self.x == 0x00);
-        self.set_flag(CpuFlag::N, self.x & TOP_BIT_THRESH as u8 != 0x00);
-        1u8
+        self.set_flag(CpuFlag::Z, self.x == 0);
+        self.set_flag(CpuFlag::N, self.x & BIT7_OF_LOW as u8 != 0);
+        1
     }
 
-    /// Load Y Register with Memory
+    
+    /// Load Y fetched
     ///
     /// Loads a byte of memory into the Y register, setting the zero and negative
     /// flags as appropriate.
@@ -943,49 +950,48 @@ impl Opcode for CPU {
     #[inline]
     fn LDY(&mut self, bus: &mut BUS) -> u8 {
         self.y = self.fetch(bus);
-        self.set_flag(CpuFlag::Z, self.y == 0x00);
-        self.set_flag(CpuFlag::N, self.y & TOP_BIT_THRESH as u8 != 0x00);
-        1u8
+        self.set_flag(CpuFlag::Z, self.y == 0);
+        self.set_flag(CpuFlag::N, self.y & BIT7_OF_LOW as u8 != 0);
+        1
     }
 
-    #[inline]
     fn LSR(&mut self, bus: &mut BUS) -> u8 {
         self.temp = (self.fetch(bus) >> 1) as u16;
-        self.set_flag(CpuFlag::C, self.fetched & 0x0001 != 0x0000);
-        self.set_flag(CpuFlag::Z, self.temp & LOW_BYTE == 0x0000);
-        self.set_flag(CpuFlag::N, self.temp & TOP_BIT_THRESH != 0x0000);
+        self.set_flag(CpuFlag::C, self.fetched & 0x0001 != 0);
+        self.set_flag(CpuFlag::Z, self.temp & LOW_BYTE == 0);
+        self.set_flag(CpuFlag::N, self.temp & BIT7_OF_LOW != 0);
         if LOOKUP_TABLE[self.opcode as usize].addr_mode as usize
             == CPU::IMP as usize
         {
-            self.a = self.temp as u8 & LOW_BYTE as u8;
+            self.acc = self.temp as u8 & LOW_BYTE as u8;
         } else {
             bus.write(self.abs, (self.temp & LOW_BYTE) as u8);
         }
-        0u8
+        0
     }
 
     #[inline]
     fn NOP(&mut self, _: &mut BUS) -> u8 {
         return match self.opcode {
-            0x1C | 0x3C | 0x5C | 0x7C | 0xDC | 0xFC => 1u8,
-            _ => 0u8,
-        };
+            0x1C | 0x3C | 0x5C | 0x7C | 0xDC | 0xFC => 1,
+            _ => 0,
+        }
     }
 
     #[inline]
     fn ORA(&mut self, bus: &mut BUS) -> u8 {
-        self.a |= self.fetch(bus);
-        self.set_flag(CpuFlag::Z, self.a == 0x00);
-        self.set_flag(CpuFlag::N, self.a & TOP_BIT_THRESH as u8 != 0x00);
-        1u8
+        self.acc |= self.fetch(bus);
+        self.set_flag(CpuFlag::Z, self.acc == 0);
+        self.set_flag(CpuFlag::N, self.acc & BIT7_OF_LOW as u8 != 0);
+        1
     }
 
-    #[inline]
+    
     fn PHA(&mut self, bus: &mut BUS) -> u8 {
-        bus.write(0x0100_u16.wrapping_add(self.sp as u16), self.a);
+        bus.write(0x0100_u16.wrapping_add(self.sp as u16), self.acc);
         self.sp = self.sp.wrapping_sub(1);
 
-        0u8
+        0
     }
 
     #[inline]
@@ -998,16 +1004,19 @@ impl Opcode for CPU {
         self.set_flag(CpuFlag::U, false);
         self.sp = self.sp.wrapping_sub(1);
 
-        0u8
+        0
     }
 
     #[inline]
     fn PLA(&mut self, bus: &mut BUS) -> u8 {
+        const BIT0_OF_HIGH: u16 = 0x0100;
+
         self.sp = self.sp.wrapping_add(1);
-        self.status = bus.read(0x0100_u16.wrapping_add(self.sp as u16), false);
-        self.set_flag(CpuFlag::Z, self.a == 0x00);
-        self.set_flag(CpuFlag::N, self.a & TOP_BIT_THRESH as u8 == 0x00);
-        0u8
+        self.acc = bus.read(BIT0_OF_HIGH.wrapping_add(self.sp as u16), false);
+
+        self.set_flag(CpuFlag::Z, self.acc == 0);
+        self.set_flag(CpuFlag::N, self.acc & BIT7_OF_LOW as u8 == 0);
+        0
     }
 
     #[inline]
@@ -1015,40 +1024,43 @@ impl Opcode for CPU {
         self.sp = self.sp.wrapping_add(1);
         self.status = bus.read(0x0100_u16.wrapping_add(self.sp as u16), false);
         self.set_flag(CpuFlag::U, true);
-        0u8
+        0
     }
 
     #[inline]
     fn ROL(&mut self, bus: &mut BUS) -> u8 {
         self.temp = (self.fetch(bus) << 1 | self.get_flag(CpuFlag::C)).into();
-        self.set_flag(CpuFlag::C, self.temp & HIGH_BYTE != 0x0000);
-        self.set_flag(CpuFlag::Z, self.temp & LOW_BYTE == 0x0000);
-        self.set_flag(CpuFlag::N, self.temp & TOP_BIT_THRESH != 0x0000);
+        self.set_flag(CpuFlag::C, self.temp & HIGH_BYTE != 0);
+        self.set_flag(CpuFlag::Z, self.temp & LOW_BYTE == 0);
+        self.set_flag(CpuFlag::N, self.temp & BIT7_OF_LOW != 0);
         if LOOKUP_TABLE[self.opcode as usize].addr_mode as usize
             == CPU::IMP as usize
         {
-            self.a = (self.temp & LOW_BYTE) as u8;
+            self.acc = (self.temp & LOW_BYTE) as u8;
         } else {
             bus.write(self.abs, (self.temp & LOW_BYTE) as u8);
         }
-        0u8
+        0
     }
 
     #[inline]
     fn ROR(&mut self, bus: &mut BUS) -> u8 {
+        let fetched = self.fetch(bus);
+        let old_carry = self.get_flag(CpuFlag::C);
+        // let result = (old_carry.wrapp
         self.temp =
             (self.get_flag(CpuFlag::C) << 7 | self.fetch(bus) >> 1).into();
-        self.set_flag(CpuFlag::C, self.fetched & 0x01 == 0x00);
-        self.set_flag(CpuFlag::Z, self.temp & LOW_BYTE == 0x00);
-        self.set_flag(CpuFlag::N, self.temp & TOP_BIT_THRESH != 0x00);
+        self.set_flag(CpuFlag::C, self.fetched & 0x01 == 0);
+        self.set_flag(CpuFlag::Z, self.temp & LOW_BYTE == 0);
+        self.set_flag(CpuFlag::N, self.temp & BIT7_OF_LOW != 0);
         if LOOKUP_TABLE[self.opcode as usize].addr_mode as usize
             == CPU::IMP as usize
         {
-            self.a = (self.temp & LOW_BYTE) as u8;
+            self.acc = (self.temp & LOW_BYTE) as u8;
         } else {
             bus.write(self.abs, (self.temp & LOW_BYTE) as u8);
         }
-        0u8
+        0
     }
 
     #[inline]
@@ -1066,7 +1078,7 @@ impl Opcode for CPU {
         self.pc |= (bus.read(0x0100_u16.wrapping_add(self.sp as u16), false)
             as u16)
             << 8;
-        0u8
+        0
     }
 
     #[inline]
@@ -1081,111 +1093,114 @@ impl Opcode for CPU {
             << 8;
 
         self.pc = self.pc.wrapping_add(1);
-        0u8
+        0
     }
 
     #[inline]
     fn SBC(&mut self, bus: &mut BUS) -> u8 {
         let value: u16 = self.fetch(bus) as u16 ^ LOW_BYTE;
-        self.temp = (self.a as u16)
+        self.temp = (self.acc as u16)
             .wrapping_add(value)
             .wrapping_add(self.get_flag(CpuFlag::C) as u16);
-        self.set_flag(CpuFlag::C, self.temp & HIGH_BYTE != 0x0000);
-        self.set_flag(CpuFlag::Z, self.temp & HIGH_BYTE == 0x0000);
+
+        self.set_flag(CpuFlag::C, self.temp & HIGH_BYTE != 0);
+        self.set_flag(CpuFlag::Z, self.temp & LOW_BYTE == 0);
         self.set_flag(
             CpuFlag::V,
-            (self.temp ^ self.a as u16) & (self.temp ^ value) & TOP_BIT_THRESH
-                != 0x0000,
+            (self.temp ^ self.acc as u16)
+                & (self.temp ^ value)
+                & BIT7_OF_LOW
+                != 0,
         );
-        self.set_flag(CpuFlag::N, self.temp & TOP_BIT_THRESH == 0x0000);
-        self.a = self.temp as u8 & LOW_BYTE as u8;
-        1u8
+        self.set_flag(CpuFlag::N, self.temp & BIT7_OF_LOW != 0);
+        self.acc = self.temp as u8 & LOW_BYTE as u8;
+        1
     }
 
-    #[inline]
+    
     fn SEC(&mut self, _: &mut BUS) -> u8 {
         self.set_flag(CpuFlag::C, true);
-        0u8
+        0
     }
 
     #[inline]
     fn SED(&mut self, _: &mut BUS) -> u8 {
         self.set_flag(CpuFlag::D, true);
-        0u8
+        0
     }
 
     #[inline]
     fn SEI(&mut self, _: &mut BUS) -> u8 {
         self.set_flag(CpuFlag::I, true);
-        0u8
+        0
     }
 
     #[inline]
     fn STA(&mut self, bus: &mut BUS) -> u8 {
-        bus.write(self.abs, self.a);
-        0u8
+        bus.write(self.abs, self.acc);
+        0
     }
 
     #[inline]
     fn STX(&mut self, bus: &mut BUS) -> u8 {
         bus.write(self.abs, self.x);
-        0u8
+        0
     }
 
     #[inline]
     fn STY(&mut self, bus: &mut BUS) -> u8 {
         bus.write(self.abs, self.y);
-        0u8
+        0
     }
 
     #[inline]
     fn TAX(&mut self, _: &mut BUS) -> u8 {
-        self.x = self.a;
-        self.set_flag(CpuFlag::Z, self.x == 0x00);
-        self.set_flag(CpuFlag::N, self.x & TOP_BIT_THRESH as u8 != 0x0000);
-        0u8
+        self.x = self.acc;
+        self.set_flag(CpuFlag::Z, self.x == 0);
+        self.set_flag(CpuFlag::N, self.x & BIT7_OF_LOW as u8 != 0);
+        0
     }
 
     #[inline]
     fn TAY(&mut self, _: &mut BUS) -> u8 {
-        self.y = self.a;
-        self.set_flag(CpuFlag::Z, self.y == 0x00);
-        self.set_flag(CpuFlag::N, self.y & TOP_BIT_THRESH as u8 != 0x0000);
-        0u8
+        self.y = self.acc;
+        self.set_flag(CpuFlag::Z, self.y == 0);
+        self.set_flag(CpuFlag::N, self.y & BIT7_OF_LOW as u8 != 0);
+        0
     }
 
     #[inline]
     fn TSX(&mut self, _: &mut BUS) -> u8 {
         self.x = self.sp;
-        self.set_flag(CpuFlag::Z, self.x == 0x00);
-        self.set_flag(CpuFlag::N, self.x & TOP_BIT_THRESH as u8 != 0x0000);
-        0u8
+        self.set_flag(CpuFlag::Z, self.x == 0);
+        self.set_flag(CpuFlag::N, self.x & BIT7_OF_LOW as u8 != 0);
+        0
     }
 
     #[inline]
     fn TXA(&mut self, _: &mut BUS) -> u8 {
-        self.a = self.x;
-        self.set_flag(CpuFlag::Z, self.a == 0x00);
-        self.set_flag(CpuFlag::N, self.a & TOP_BIT_THRESH as u8 != 0x0000);
-        0u8
+        self.acc = self.x;
+        self.set_flag(CpuFlag::Z, self.acc == 0);
+        self.set_flag(CpuFlag::N, self.acc & BIT7_OF_LOW as u8 != 0);
+        0
     }
 
     #[inline(always)]
     fn TXS(&mut self, _: &mut BUS) -> u8 {
         self.sp = self.x;
-        0u8
+        0
     }
 
     #[inline]
     fn TYA(&mut self, _: &mut BUS) -> u8 {
-        self.a = self.y;
-        self.set_flag(CpuFlag::Z, self.a == 0x00);
-        self.set_flag(CpuFlag::N, self.a & TOP_BIT_THRESH as u8 != 0x0000);
-        0u8
+        self.acc = self.y;
+        self.set_flag(CpuFlag::Z, self.acc == 0);
+        self.set_flag(CpuFlag::N, self.acc & BIT7_OF_LOW as u8 != 0);
+        0
     }
 
     #[inline(always)]
     fn XXX(&mut self, _: &mut BUS) -> u8 {
-        0u8
+        0
     }
 }
