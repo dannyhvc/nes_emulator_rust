@@ -66,3 +66,4 @@ This project was inspired by several other NES emulator projects. I would like t
 - [pcwalton/sprocketnes](https://github.com/pcwalton/sprocketnes): Another NES emulator that provided useful insights and ideas for my implementation.
 
 Their work has been instrumental in shaping this project and I am grateful for their contributions to the NES emulator community.
+
