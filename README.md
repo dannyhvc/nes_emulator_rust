@@ -18,6 +18,8 @@ This emulator is currently a work in progress. The following features are implem
 - [ ] Mapper 6: To be implemented.
 - [ ] Mapper 7: To be implemented.
 
+- [ ] Debugger gui implementation
+
 ## Usage
 
 ### Prerequisites
