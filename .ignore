@@ -1,0 +1,7 @@
+/.vscode
+/.vs
+/.github
+/target
+/docs
+*.md
+rustfmt.toml

@@ -1,0 +1,121 @@
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Debugger UI Wireframe</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      background-color: #f0f0f0;
+    }
+
+    .debugger-container {
+      width: 600px;
+      border: 1px solid #ccc;
+      background-color: #fff;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    }
+
+    .header {
+      padding: 15px;
+      background-color: #4CAF50;
+      color: white;
+      text-align: center;
+    }
+
+    .section {
+      padding: 20px;
+      border-bottom: 1px solid #ccc;
+    }
+
+    .buttons {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 10px;
+    }
+
+    button {
+      padding: 10px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #45a049;
+    }
+
+    .logger {
+      margin-top: 10px;
+    }
+
+    select,
+    .log-output {
+      width: 100%;
+      padding: 10px;
+      margin-top: 10px;
+      border: 1px solid #ccc;
+      background-color: #f9f9f9;
+    }
+
+    .log-output {
+      height: 100px;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="debugger-container">
+    <!-- CPU State & Instruction State -->
+    <div class="header">
+      <h2>Debugger</h2>
+    </div>
+
+    <div class="section">
+      <h3>CPU State</h3>
+      <p>Current CPU Information...</p>
+    </div>
+
+    <div class="section">
+      <h3>Instruction State</h3>
+      <p>Current Instruction Information...</p>
+    </div>
+
+    <!-- Control Buttons -->
+    <div class="section">
+      <div class="buttons">
+        <button>Stop</button>
+        <button>Skip</button>
+        <button>Step Over</button>
+        <button>Step In</button>
+        <button class="">Continue</button>
+      </div>
+    </div>
+
+    <!-- Logger Dropdown & Log Output -->
+    <div class="section">
+      <div class="logger">
+        <label for="logger">Logger:</label>
+        <select id="logger" class="">
+          <option value="info">Info</option>
+          <option value="warnings">Warnings</option>
+          <option value="errors">Errors</option>
+        </select>
+      </div>
+
+      <div class="log-output">
+        Log output will be displayed here...
+      </div>
+    </div>
+    </divh </body>
+
+</html>

@@ -3,9 +3,20 @@
 	"configurations": [
 		{
 			"type": "lldb",
+			"request": "attach",
+			"name": "Attach",
+			"program": "${workspaceFolder}/target/debug/start.exe"
+		},
+		{
+			"name": "(Windows) Attach",
+			"type": "cppvsdbg",
+			"request": "attach"
+		},
+		{
+			"type": "lldb",
 			"request": "launch",
 			"name": "Launch",
-			"program": "${workspaceFolder}/target/debug/nes_emulator.exe",
+			"program": "${workspaceFolder}/target/debug/start.exe",
 			"args": [],
 			"cwd": "${workspaceFolder}"
 		},
@@ -13,7 +24,7 @@
 			"name": "(Windows) Launch",
 			"type": "cppvsdbg",
 			"request": "launch",
-			"program": "${workspaceRoot}/target/debug/${workspaceFolderBasename}.exe",
+			"program": "${workspaceRoot}/target/debug/start.exe",
 			"args": [],
 			"stopAtEntry": false,
 			"cwd": "${workspaceRoot}",
