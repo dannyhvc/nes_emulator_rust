@@ -1,7 +1,7 @@
 #![allow(non_snake_case)]
 
 use crate::{dh_bus::BUS, dh_cpu::CPU, HIGH_BYTE, LOW_BYTE};
-use crate::{AddressingMode, BIT7_OF_LOW};
+use crate::AddressingMode;
 
 impl AddressingMode for CPU {
     /// Implied Addressing (IMP)
@@ -34,7 +34,7 @@ impl AddressingMode for CPU {
     /// // The `fetched` register in the `cpu` will now hold the value from the accumulator.
     /// ```
     fn IMP(&mut self, _: &mut BUS) -> u8 {
-        self.fetched = self.acc;
+        self.fetched = self.a;
         0
     }
 
@@ -68,6 +68,7 @@ impl AddressingMode for CPU {
     /// ```
     fn IMM(&mut self, _bus: &mut BUS) -> u8 {
         self.abs = self.pc;
+        self.pc = self.pc.wrapping_add(1);
         0
     }
 
@@ -362,11 +363,11 @@ impl AddressingMode for CPU {
     /// // The `rel` register in the `cpu` will now hold the value 16 (sign-extended).
     /// ```
     fn REL(&mut self, bus: &mut BUS) -> u8 {
-        self.rel = u16::from(bus.read(self.pc, false));
+        let offset = bus.read(self.pc, false);
         self.pc = self.pc.wrapping_add(1);
-        if (self.rel & BIT7_OF_LOW) != 0 {
-            self.rel |= LOW_BYTE;
-        }
+    
+        // Let Rust handle the sign extension cleanly
+        self.rel = (offset as i8) as u16; 
         0
     }
 
@@ -473,7 +474,6 @@ impl AddressingMode for CPU {
         );
 
         self.abs = u16::from_le_bytes([lo, hi]);
-        self.abs = hi.wrapping_shl(hi as u32) as u16 | lo as u16;
         0
     }
 

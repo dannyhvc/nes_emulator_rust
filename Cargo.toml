@@ -2,6 +2,6 @@
 resolver = "2"
 members = [
     "components",
-    "debug",
+    "debug", "renderer",
     "start", "util",
 ]

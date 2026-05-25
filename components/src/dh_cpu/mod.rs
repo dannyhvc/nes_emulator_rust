@@ -60,7 +60,7 @@ pub struct CPU {
     // cpu Core registers, exposed as public here for ease of access from external
     // examinors. This is all the 6502 has.
     /// Accumulator Register
-    pub acc: u8,
+    pub a: u8,
     /// X Register
     pub x: u8,
     /// Y Register
@@ -91,7 +91,7 @@ pub struct CPU {
 
 impl CPU {
     pub const fn a(&self) -> u8 {
-        self.acc
+        self.a
     }
 
     pub const fn abs(&self) -> u16 {
@@ -533,7 +533,7 @@ impl CPU {
                     let string_rep: String = format!(
                         "${:x} [${:x}] {{rel}}",
                         _value,
-                        address.wrapping_add(_value as u32)
+                        address.wrapping_add_signed((_value as i8) as i32)
                     );
 
                     // Append the string representation to the existing instruction address string
@@ -642,7 +642,7 @@ impl CPU {
     #[inline]
     pub const fn new() -> CPU {
         CPU {
-            acc: 0x00,
+            a: 0x00,
             x: 0x00,
             y: 0x00,
             sp: 0x00,
@@ -711,7 +711,7 @@ impl CPU {
 
         self.pc = u16::from_le_bytes([low, high]);
 
-        self.acc = 0;
+        self.a = 0;
         self.x = 0;
         self.y = 0;
         self.sp = 0xFD;
@@ -726,7 +726,7 @@ impl CPU {
 
     #[cfg(feature = "debug")]
     pub fn set_a(&mut self, a: u8) {
-        self.acc = a;
+        self.a = a;
     }
 
     #[cfg(feature = "debug")]

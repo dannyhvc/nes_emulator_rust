@@ -12,7 +12,7 @@ use eyre::Result as ErrorOr;
 
 #[derive(Debug, Clone, Hash)]
 pub struct BUS {
-    pub ram: [u8; KB(64)],      // 2Kb of ram
+    pub ram: [u8; KB(64)],  // 2Kb of ram
     sys_clock_counter: u32, // motherboards clock for busses
 }
 
@@ -67,25 +67,31 @@ impl BUS {
     /// load_program
     /// -----
     ///
-    /// Loads program into memory so that it can be executed
+    /// Loads a string of hex bytes into memory so that it can be executed.
     #[cfg(feature = "debug")]
     pub fn load_program(
         &mut self,
         data: &str,
         offset: &mut usize,
     ) -> ErrorOr<()> {
-        const SPACE: char = ' ';
-        const BASE_HEX: u32 = 16;
+        // It automatically handles double spaces, tabs, and newlines
+        for hex_str in data.split_whitespace() {
+            // Prevent a panic if your program exceeds RAM limits
+            if *offset >= self.ram.len() {
+                panic!(
+                    "load_program exceeded RAM capacity at offset {}",
+                    offset
+                );
+            }
 
-        // splitting the bytes by spaces
-        let split_data = data.split(SPACE);
-        split_data.into_iter().for_each(|x| {
-            // Turning str to hex in
-            let byte = u16::from_str_radix(x, BASE_HEX).unwrap();
-            println!("{byte}");
-            self.ram[*offset] = byte as u8;
+            // Parse directly to u8 instead of u16
+            // Using match or expect gives a clearer error if typo'd a hex value.
+            let byte = u8::from_str_radix(hex_str, 16)
+                .expect(&format!("Failed to parse hex string: '{}'", hex_str));
+
+            self.ram[*offset] = byte;
             *offset += 1;
-        });
+        }
 
         Ok(())
     }

@@ -5,7 +5,7 @@ use iced::{
     },
     Alignment, Color, Element, Font, Length, Size, Task, Theme,
 };
-/// NES / MOS 6502 Debugger — iced 0.13.1
+/// NES / MOS 6502 Debugger - iced 0.13.1
 use std::collections::BTreeMap;
 
 use components::{dh_bus::BUS, dh_cpu::CPU};
@@ -93,12 +93,12 @@ const INPUT_ERR: Color = Color {
 //   $0202  STA $00    ; mem[0] = 1
 //   $0204  LDA #$01
 //   $0206  STA $01    ; mem[1] = 1
-//   $0208  LDA $00    ; A = mem[n-2]   ← loop top
+//   $0208  LDA $00    ; A = mem[n-2]   <- loop top
 //   $020A  ADC $01    ; A += mem[n-1]
 //   $020C  STA $02    ; mem[2] = result
-//   $020E  LDA $01    ; rotate: mem[0] ← old mem[1]
+//   $020E  LDA $01    ; rotate: mem[0] <- old mem[1]
 //   $0210  STA $00
-//   $0212  LDA $02    ;         mem[1] ← result
+//   $0212  LDA $02    ;         mem[1] <- result
 //   $0214  STA $01
 //   $0216  JMP $0208  ; loop
 //
@@ -132,6 +132,25 @@ const PROG: &[(u16, u8)] = &[
     (0x0217, 0x08),
     (0x0218, 0x02), // JMP $0208
 ];
+
+// Demo program
+//
+// Simple increment loop in flat writable RAM at $0200.
+//
+//   $0200  LDX #$00   ; Initialize X register to 0
+//   $0202  INX        ; Increment X register   <- loop top
+//   $0203  STX $00    ; Store X in mem[0] (Zero Page)
+//   $0205  JMP $0202  ; Jump back to $0202
+//
+// const PROG_START: u16 = 0x0200;
+// const PROG_END: u16 = 0x0205;
+
+// const PROG: &[(u16, u8)] = &[
+//     (0x0200, 0xA2), (0x0201, 0x00), // LDX #$00
+//     (0x0202, 0xE8),                  // INX
+//     (0x0203, 0x86), (0x0204, 0x00), // STX $00
+//     (0x0205, 0x4C), (0x0206, 0x02), (0x0207, 0x02), // JMP $0202
+// ];
 
 // App state
 // Add a quick identifier for which pane is which
@@ -190,20 +209,29 @@ impl Debugger {
         let mut cpu = CPU::new();
         let mut bus = BUS::new();
 
-        for &(addr, val) in PROG {
-            bus.write(addr, val);
-        }
+        // Define the start address
+        const PROG_START: u16 = 0x0200;
+        let mut offset: usize = PROG_START as usize;
 
+        // Load the hex file at compile time and parse it into RAM
+        let program_hex = include_str!("../../assets/progs/complex_test.hex");
+        
+        // This will write the bytes into RAM and increment `offset` for each byte
+        bus.load_program(program_hex, &mut offset).expect("Failed to load fibonacci.hex");
+
+        // Since `offset` was incremented, it now represents the exact end of our program!
+        let prog_end = offset as u16;
+
+        // Set the Reset Vector so the CPU knows where to boot
+        bus.write(0xFFFC, (PROG_START & 0xFF) as u8);
+        bus.write(0xFFFD, (PROG_START >> 8) as u8);
+
+        // Reset the CPU (it will read 0xFFFC/D and jump to prog_start)
         CPU::reset(&mut cpu, &bus);
-        for _ in 0..8 {
-            CPU::clock(&mut cpu, &mut bus);
-        }
-        // Force PC to program start — the NES bus maps $FFFC/$FFFD to
-        // cartridge ROM, so we can't rely on the reset vector.
-        cpu.set_pc(PROG_START);
+        cpu.set_cycles(0);
 
         let disasm: BTreeMap<u16, String> =
-            CPU::disassemble(&mut bus, PROG_START, PROG_END)
+            CPU::disassemble(&mut bus, PROG_START, prog_end)
                 .into_iter()
                 .map(|(k, v)| (k, v.to_uppercase()))
                 .collect();
@@ -244,18 +272,24 @@ impl Debugger {
                 while !self.cpu.complete() {
                     CPU::clock(&mut self.cpu, &mut self.bus);
                 }
-                loop {
+                CPU::clock(&mut self.cpu, &mut self.bus);
+                while !self.cpu.complete() {
                     CPU::clock(&mut self.cpu, &mut self.bus);
-                    if self.cpu.complete() {
-                        break;
-                    }
                 }
                 self.sync_page();
             }
             Message::Run => {
                 self.running = true;
                 for _ in 0..self.run_burst {
+                    std::thread::sleep(std::time::Duration::from_millis(50));
+                    let _ = iced::Task::done(Message::Step);
+                    while !self.cpu.complete() {
+                        CPU::clock(&mut self.cpu, &mut self.bus);
+                    }
                     CPU::clock(&mut self.cpu, &mut self.bus);
+                    while !self.cpu.complete() {
+                        CPU::clock(&mut self.cpu, &mut self.bus);
+                    }
                 }
                 self.sync_page();
             }
@@ -265,9 +299,7 @@ impl Debugger {
             Message::Reset => {
                 self.running = false;
                 CPU::reset(&mut self.cpu, &self.bus);
-                for _ in 0..8 {
-                    CPU::clock(&mut self.cpu, &mut self.bus);
-                }
+                self.cpu.set_cycles(0);
                 self.cpu.set_pc(PROG_START);
                 self.sync_page();
             }
@@ -367,7 +399,7 @@ impl Debugger {
     }
 
     // Top bar
-    fn view_top_bar(&self) -> Element<Message> {
+    fn view_top_bar(&self) -> Element<'_, Message> {
         let title = text("MOS 6502 Debugger").size(20).color(ACCENT);
 
         let btn = |label: &'static str, msg: Message| {
@@ -405,7 +437,7 @@ impl Debugger {
     }
 
     // Registers
-    fn view_registers(&self) -> Element<Message> {
+    fn view_registers(&self) -> Element<'_, Message> {
         let pc = self.cpu.pc();
         let sp = self.cpu.sp();
         let a = self.cpu.a();
@@ -457,7 +489,7 @@ impl Debugger {
     }
 
     // Flags
-    fn view_flags(&self) -> Element<Message> {
+    fn view_flags(&self) -> Element<'_, Message> {
         let status = self.cpu.status();
 
         let flag = |name: &'static str, mask: u8| -> Element<Message> {
@@ -506,7 +538,7 @@ impl Debugger {
     }
 
     // RAM hex view
-    fn view_ram(&self) -> Element<Message> {
+    fn view_ram(&self) -> Element<'_, Message> {
         let page = self.ram_page as u16;
         let base = page * 256;
         let pc = self.cpu.pc();
@@ -579,7 +611,7 @@ impl Debugger {
                 s
             });
 
-        // Hint below the input, not inline — prevents layout overflow/popover.
+        // Hint below the input, not inline - prevents layout overflow/popover.
         let hint_text = if self.ram_page_input_err {
             text("invalid").size(10).color(INPUT_ERR)
         } else {
@@ -631,7 +663,7 @@ impl Debugger {
             ]
             .align_y(Alignment::Center),
             horizontal_rule(1),
-            // Fill the remaining height of the panel — no fixed pixel cap.
+            // Fill the remaining height of the panel - no fixed pixel cap.
             scrollable(Column::from_iter(hex_rows).spacing(3).padding([0, 4]))
                 .height(Length::Fill),
         ]
@@ -647,7 +679,7 @@ impl Debugger {
     }
 
     // Disassembly
-    fn view_disassembly(&self) -> Element<Message> {
+    fn view_disassembly(&self) -> Element<'_, Message> {
         let pc = self.cpu.pc();
 
         let entries = self.disasm.iter().map(|(&addr, instr)| {
@@ -714,8 +746,8 @@ impl Debugger {
 // Helpers
 /// Parse a RAM page (0–255).
 /// - Has any A-F letter → hex    ("C0", "ff")
-/// - Pure digits ≤ 2 chars → hex ("10" = page 16)
-/// - Pure digits = 3 chars → dec ("192", "255")
+/// - Pure digits <= 2 chars -> hex ("10" = page 16)
+/// - Pure digits = 3 chars -> dec ("192", "255")
 fn parse_page(s: &str) -> Option<u8> {
     let s = s.trim();
     if s.is_empty() {

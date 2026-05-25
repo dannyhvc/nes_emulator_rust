@@ -1,24 +1,41 @@
-use std::marker::PhantomData;
+use std::ops::{Deref, DerefMut};
 
-use crate::dh_mappers::{dh_m000::m000::M000, traits::mapper_fn::MapperFn};
+use crate::dh_mappers::dh_mapper::mapper::Mapper;
+use crate::dh_mappers::traits::mapper_fn::MapperFn;
+
+#[derive(Debug, Clone, Copy)]
+pub struct M000(Mapper);
+impl M000 {
+    pub fn new(chr_bank: u8, prg_bank: u8) -> Self {
+        Self(Mapper { chr_bank, prg_bank })
+    }
+}
+
+impl Deref for M000 {
+    type Target = Mapper;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for M000 {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
 
 impl MapperFn for M000 {
-    fn new(prg_bank: u8, chr_bank: u8) -> Self {
-        M000 {
-            _marker: PhantomData,
-            chr_bank,
-            prg_bank,
-        }
-    }
-
+    /// ```txt
+    /// if PRGROM is 16KB:
+    ///     CPU Address Bus          PRG ROM
+    ///     0x8000 -> 0xBFFF: Map    0x0000 -> 0x3FFF
+    ///     0xC000 -> 0xFFFF: Mirror 0x0000 -> 0x3FFF
+    /// if PRGROM is 32KB:
+    ///     CPU Address Bus          PRG ROM
+    ///     0x8000 -> 0xFFFF: Map    0x0000 -> 0x7FFF
+    /// ```
     fn allow_cpu_read(&self, addr: u16, mapped_addr: &mut u32) -> bool {
-        // if PRGROM is 16KB
-        //     CPU Address Bus          PRG ROM
-        //     0x8000 -> 0xBFFF: Map    0x0000 -> 0x3FFF
-        //     0xC000 -> 0xFFFF: Mirror 0x0000 -> 0x3FFF
-        // if PRGROM is 32KB
-        //     CPU Address Bus          PRG ROM
-        //     0x8000 -> 0xFFFF: Map    0x0000 -> 0x7FFF
         match addr {
             0x8000..=0xFFFF => {
                 let mapping: u32 =

@@ -18,7 +18,7 @@ pub fn cpu_base<'a>(state: &DebuggerState) -> Element<'a, DebuggerMsg> {
 
     // Build a vertical list of all register values (A, X, Y, etc.)
     let registers = Column::with_children(vec![
-        reg("ACC", cpu.acc),             // Accumulator
+        reg("ACC", cpu.a),             // Accumulator
         reg("X", cpu.x),             // X index register
         reg("Y", cpu.y),             // Y index register
         reg("SP", cpu.sp),           // Stack pointer
