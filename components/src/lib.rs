@@ -29,7 +29,7 @@ pub const NON_MASKABLE_INTERUPT_VECTOR: u16 = 0xFFFA;
 
 #[allow(non_snake_case)]
 #[inline(always)]
-pub const fn KB(n: u32) -> usize {
+pub const fn KiB(n: u32) -> usize {
     const SIZEOF_1KB: u32 = 2_u32.pow(10_u32); // 1024
     (n * SIZEOF_1KB) as usize
 }

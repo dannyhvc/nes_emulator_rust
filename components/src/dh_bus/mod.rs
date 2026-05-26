@@ -7,12 +7,12 @@ use ram_stats::RamAccessType;
 use ram_stats::ADDRESS_HIT_COUNT;
 
 use crate::dh_cpu::CPU;
-use crate::{END_OF_RAM, KB, START_OF_RAM};
+use crate::{END_OF_RAM, KiB, START_OF_RAM};
 use eyre::Result as ErrorOr;
 
 #[derive(Debug, Clone, Hash)]
 pub struct BUS {
-    pub ram: [u8; KB(64)],  // 2Kb of ram
+    pub ram: [u8; KiB(64)],  // 2Kb of ram
     sys_clock_counter: u32, // motherboards clock for busses
 }
 
@@ -99,13 +99,13 @@ impl BUS {
     /// Creates a new [`Bus`]. With 2Kb of MOS 6502 memory
     pub fn new() -> Self {
         Self {
-            ram: [0u8; KB(64)],
+            ram: [0u8; KiB(64)],
             sys_clock_counter: 0,
         }
     }
 
     #[cfg(feature = "debug")]
-    pub fn ram(&self) -> &[u8; KB(64)] {
+    pub fn ram(&self) -> &[u8; KiB(64)] {
         &self.ram
     }
 
